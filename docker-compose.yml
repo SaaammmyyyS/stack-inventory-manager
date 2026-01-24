@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./saas-manager
+      dockerfile: Dockerfile
+    container_name: saas_backend_api
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+    # We don't strictly need to expose 8080 to the outside anymore
+    # because Nginx talks to it internally, but we can keep it for debugging.
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: saas_frontend_ui
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
