@@ -15,30 +15,25 @@ public class InventoryService {
         this.repository = repository;
     }
 
-    public List<InventoryItem> getItemsByTenant(String tenantId) {
-        return repository.findByTenantId(tenantId);
+    public List<InventoryItem> getAllItems() {
+        return repository.findAll();
     }
 
     public InventoryItem saveItem(InventoryItem item) {
         return repository.save(item);
     }
 
-    // Fixed: Added tenantId to method signature
-    public InventoryItem updateItem(UUID id, InventoryItem details, String tenantId) {
+    public InventoryItem updateItem(UUID id, InventoryItem details) {
         return repository.findById(id)
-                .filter(item -> item.getTenantId().equals(tenantId)) // Security check
                 .map(item -> {
                     item.setName(details.getName());
                     item.setQuantity(details.getQuantity());
                     return repository.save(item);
                 })
-                .orElseThrow(() -> new RuntimeException("Not found or unauthorized"));
+                .orElseThrow(() -> new RuntimeException("Item not found"));
     }
 
-    public void deleteItem(UUID id, String tenantId) {
-        InventoryItem item = repository.findById(id)
-                .filter(i -> i.getTenantId().equals(tenantId))
-                .orElseThrow(() -> new RuntimeException("Not found or unauthorized"));
-        repository.delete(item);
+    public void deleteItem(UUID id) {
+        repository.deleteById(id);
     }
 }

@@ -2,6 +2,7 @@ package com.inventory.saas.model;
 
 import jakarta.persistence.*;
 import lombok.Data;
+import org.hibernate.annotations.TenantId;
 import java.util.UUID;
 
 @Data
@@ -12,6 +13,7 @@ public class InventoryItem {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
+    @TenantId
     @Column(name = "tenant_id", nullable = false)
     private String tenantId;
 

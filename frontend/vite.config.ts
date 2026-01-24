@@ -9,7 +9,6 @@ export default defineConfig({
   ],
   server: {
     proxy: {
-      // This makes port 5173 act exactly like our Nginx port 80
       '/api': {
         target: 'http://localhost:8080',
         changeOrigin: true,

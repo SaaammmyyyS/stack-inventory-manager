@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { UserButton, useUser } from "@clerk/clerk-react";
+import { UserButton, useUser, OrganizationSwitcher } from "@clerk/clerk-react"; // Added OrganizationSwitcher
 import {
   Package,
   LayoutDashboard,
@@ -7,7 +7,8 @@ import {
   MessageSquare,
   Menu,
   X,
-  ChevronRight
+  ChevronRight,
+  Building2
 } from "lucide-react";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -23,7 +24,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex min-h-screen bg-slate-50">
-      {/* MOBILE SIDEBAR OVERLAY */}
       {isOpen && (
         <div
           className="fixed inset-0 bg-slate-900/50 z-40 md:hidden backdrop-blur-sm"
@@ -31,7 +31,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         />
       )}
 
-      {/* SIDEBAR */}
       <aside className={`
         fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-slate-200
         transition-transform duration-300 ease-in-out transform
@@ -39,8 +38,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         md:relative md:translate-x-0
       `}>
         <div className="flex flex-col h-full p-6">
-          {/* LOGO & MOBILE CLOSE BUTTON */}
-          <div className="flex items-center justify-between mb-10 px-2">
+          <div className="flex items-center justify-between mb-8 px-2">
             <div className="flex items-center gap-3">
               <div className="bg-blue-600 p-2 rounded-xl text-white shadow-lg shadow-blue-200">
                 <Package size={22} />
@@ -48,7 +46,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <span className="font-bold text-xl tracking-tight text-slate-900">SaaSManager</span>
             </div>
 
-            {/* Mobile Close Button - Uses the 'X' icon */}
             <button
               onClick={() => setIsOpen(false)}
               className="md:hidden p-2 text-slate-400 hover:text-slate-600 transition-colors"
@@ -57,8 +54,28 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </button>
           </div>
 
-          {/* NAV LINKS */}
+          <div className="mb-8 px-2">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 px-1">
+              Active Tenant
+            </p>
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-2">
+               <OrganizationSwitcher
+                appearance={{
+                  elements: {
+                    rootBox: "w-full",
+                    organizationSwitcherTrigger: "w-full justify-between bg-transparent hover:bg-slate-100 transition-colors py-2 px-3",
+                    organizationPreviewTextContainer: "text-left",
+                    organizationPreviewMainIdentifier: "text-sm font-bold text-slate-900",
+                  }
+                }}
+              />
+            </div>
+          </div>
+
           <nav className="flex-1 space-y-1">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 px-3">
+              Menu
+            </p>
             {navigation.map((item) => (
               <button
                 key={item.name}
@@ -78,7 +95,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             ))}
           </nav>
 
-          {/* USER SECTION */}
           <div className="pt-6 border-t border-slate-100 flex items-center gap-3 px-2">
             <UserButton afterSignOutUrl="/" />
             <div className="overflow-hidden">
@@ -89,9 +105,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
       </aside>
 
-      {/* MAIN CONTENT AREA */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* TOP MOBILE BAR */}
         <header className="md:hidden flex items-center justify-between p-4 bg-white border-b border-slate-200">
           <div className="flex items-center gap-2">
             <Package className="text-blue-600" size={24} />
@@ -102,7 +116,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </button>
         </header>
 
-        {/* PAGE CONTENT */}
         <main className="flex-1 overflow-y-auto">
           <div className="max-w-6xl mx-auto p-4 md:p-10">
             {children}

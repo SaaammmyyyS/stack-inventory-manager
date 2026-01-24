@@ -20,9 +20,8 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 .cors(Customizer.withDefaults())
-                .csrf(csrf -> csrf.disable())
+                //.csrf(csrf -> csrf.disable()) // Disable for development
                 .authorizeHttpRequests(auth -> auth
-                        // 1. ALLOW ALL OPTIONS REQUESTS (Fixes 405)
                         .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/inventory/**").authenticated()
                         .anyRequest().permitAll()
@@ -37,10 +36,17 @@ public class SecurityConfig {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(List.of(
                 "http://localhost:5173",
-                "https://dmtc2sumyu.ap-southeast-1.awsapprunner.com" // Add your live frontend URL here
+                "https://dmtc2sumyu.ap-southeast-1.awsapprunner.com"
         ));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("Authorization", "Content-Type"));
+
+        config.setAllowedHeaders(List.of(
+                "Authorization",
+                "Content-Type",
+                "X-Tenant-ID",
+                "Cache-Control"
+        ));
+
         config.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

@@ -4,7 +4,6 @@ import App from './App.tsx'
 import './index.css'
 import { ClerkProvider } from '@clerk/clerk-react'
 
-// Import the key from your .env file
 const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
 
 if (!PUBLISHABLE_KEY) {
@@ -13,7 +12,6 @@ if (!PUBLISHABLE_KEY) {
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    {/* The Provider MUST wrap the App to give it access to useUser() */}
     <ClerkProvider publishableKey={PUBLISHABLE_KEY}>
       <App />
     </ClerkProvider>
