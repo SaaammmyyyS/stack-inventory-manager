@@ -1,4 +1,22 @@
-import { X, Clock, User, Loader2, ArrowUpRight, ArrowDownLeft, RotateCcw, Trash2 } from 'lucide-react';
+import React from 'react';
+import {
+  X,
+  Clock,
+  User,
+  Loader2,
+  ArrowUpRight,
+  ArrowDownLeft,
+  RotateCcw,
+  Trash2,
+  History
+} from 'lucide-react';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
 import type { StockTransaction } from '../../hooks/useInventory';
 
 interface Props {
@@ -10,45 +28,56 @@ interface Props {
 }
 
 export default function ActivityLogDrawer({ isOpen, itemName, isLoading, data, onClose }: Props) {
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 z-[100] flex justify-end">
-      <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm animate-in fade-in" onClick={onClose} />
-
-      <div className="relative w-full max-w-md bg-white h-full shadow-2xl p-8 animate-in slide-in-from-right duration-300 flex flex-col">
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h2 className="text-2xl font-black text-slate-900 tracking-tight">Activity Log</h2>
-            <p className="text-slate-500 font-medium">{itemName}</p>
-          </div>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full transition-colors"><X size={24} /></button>
+    <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <SheetContent className="w-full sm:max-w-md p-0 flex flex-col border-l border-slate-100">
+        <div className="p-8 border-b border-slate-50 bg-slate-50/30">
+          <SheetHeader className="space-y-1">
+            <div className="flex items-center gap-3 text-blue-600 mb-2">
+              <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+                <History size={20} />
+              </div>
+              <SheetTitle className="text-2xl font-black text-slate-900 tracking-tight">
+                Activity Log
+              </SheetTitle>
+            </div>
+            <SheetDescription className="text-slate-500 font-bold text-base">
+              {itemName}
+            </SheetDescription>
+          </SheetHeader>
         </div>
 
-        {isLoading ? (
-          <div className="flex-1 flex flex-col items-center justify-center">
-            <Loader2 className="animate-spin text-blue-500 mb-4" size={32} />
-            <p className="text-slate-400 font-medium">Fetching history...</p>
-          </div>
-        ) : (
-          <div className="flex-1 overflow-y-auto pr-2 space-y-6">
-            {data.length === 0 ? (
-              <div className="text-center py-20">
-                <p className="text-slate-400 font-medium">No history recorded.</p>
+        <div className="flex-1 overflow-y-auto p-8 pt-6">
+          {isLoading ? (
+            <div className="h-full flex flex-col items-center justify-center space-y-4">
+              <Loader2 className="animate-spin text-blue-500" size={32} />
+              <p className="text-slate-400 font-bold uppercase text-xs tracking-widest">
+                Fetching History...
+              </p>
+            </div>
+          ) : data.length === 0 ? (
+            <div className="h-full flex flex-col items-center justify-center text-center px-6">
+              <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4">
+                <Clock className="text-slate-200" size={32} />
               </div>
-            ) : (
-              data.map((tx) => (
-                <div key={tx.id} className="flex gap-4 border-l-2 border-slate-100 pl-6 relative">
-                  <div className={`absolute -left-[9px] top-1 w-4 h-4 rounded-full border-4 border-white ${
-                    tx.type === 'STOCK_IN' ? 'bg-green-500' :
+              <p className="text-slate-400 font-medium">No history recorded for this item yet.</p>
+            </div>
+          ) : (
+            <div className="space-y-8 relative">
+              <div className="absolute left-[7px] top-2 bottom-2 w-[2px] bg-slate-100" />
+
+              {data.map((tx) => (
+                <div key={tx.id} className="relative pl-8 group">
+                  <div className={`absolute left-0 top-1.5 w-4 h-4 rounded-full border-4 border-white z-10 shadow-sm transition-transform group-hover:scale-125 ${
+                    tx.type === 'STOCK_IN' ? 'bg-emerald-500' :
                     tx.type === 'STOCK_OUT' ? 'bg-orange-500' :
                     tx.type === 'DELETED' ? 'bg-red-500' : 'bg-blue-500'
                   }`} />
 
-                  <div className="flex-1">
-                    <div className="flex justify-between items-start mb-1">
-                      <span className={`font-black text-sm flex items-center gap-1 ${
-                        tx.type === 'STOCK_IN' ? 'text-green-600' :
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-start">
+                      <span className={`font-black text-xs uppercase tracking-tight flex items-center gap-1.5 ${
+                        tx.type === 'STOCK_IN' ? 'text-emerald-600' :
                         tx.type === 'STOCK_OUT' ? 'text-orange-600' : 'text-slate-600'
                       }`}>
                         {tx.type === 'STOCK_IN' && <ArrowUpRight size={14} />}
@@ -57,26 +86,45 @@ export default function ActivityLogDrawer({ isOpen, itemName, isLoading, data, o
                         {tx.type === 'RESTORED' && <RotateCcw size={14} />}
 
                         {tx.type.replace('_', ' ')}
-                        {tx.quantityChange !== 0 && ` (${tx.quantityChange > 0 ? '+' : ''}${tx.quantityChange})`}
+                        {tx.quantityChange !== 0 && (
+                          <span className="bg-slate-100 px-1.5 py-0.5 rounded text-[10px]">
+                            {tx.quantityChange > 0 ? '+' : ''}{tx.quantityChange}
+                          </span>
+                        )}
                       </span>
 
-                      <span className="text-[10px] text-slate-400 font-mono flex items-center gap-1">
-                        <Clock size={10} /> {new Date(tx.createdAt).toLocaleDateString()}
+                      <span className="text-[10px] text-slate-400 font-bold font-mono bg-slate-50 px-2 py-1 rounded">
+                        {new Date(tx.createdAt).toLocaleDateString(undefined, {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric'
+                        })}
                       </span>
                     </div>
 
-                    <p className="text-slate-600 font-bold text-sm leading-snug">{tx.reason}</p>
+                    <p className="text-slate-700 font-bold text-sm leading-tight">
+                      {tx.reason}
+                    </p>
 
-                    <div className="flex items-center gap-1 text-[11px] text-slate-400 mt-2 uppercase font-bold tracking-wider">
-                      <User size={10} /> {tx.performedBy || 'System'}
+                    <div className="flex items-center gap-2 text-[10px] text-slate-400 font-black uppercase tracking-widest">
+                      <div className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center">
+                        <User size={10} className="text-slate-400" />
+                      </div>
+                      {tx.performedBy || 'System'}
                     </div>
                   </div>
                 </div>
-              ))
-            )}
-          </div>
-        )}
-      </div>
-    </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="p-6 border-t border-slate-100 bg-slate-50/30">
+          <p className="text-[10px] text-slate-400 font-medium text-center leading-relaxed">
+            Logs are stored permanently and cannot be modified to ensure inventory integrity.
+          </p>
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 }

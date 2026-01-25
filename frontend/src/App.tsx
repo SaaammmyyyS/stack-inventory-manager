@@ -1,6 +1,8 @@
 import { SignedIn, SignedOut, SignInButton, useUser } from "@clerk/clerk-react";
+import { Routes, Route, Navigate } from "react-router-dom";
 import DashboardLayout from './components/DashboardLayout';
 import InventoryView from "./components/InventoryView";
+import Dashboard from "./pages/Dashboard";
 import { Package, Loader2 } from 'lucide-react';
 
 export default function App() {
@@ -8,7 +10,10 @@ export default function App() {
 
   if (!isUserLoaded) return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50">
-      <Loader2 className="animate-spin text-blue-600" size={32} />
+      <div className="flex flex-col items-center gap-4">
+        <Loader2 className="animate-spin text-blue-600" size={40} />
+        <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">Loading Session...</p>
+      </div>
     </div>
   );
 
@@ -20,7 +25,19 @@ export default function App() {
 
       <SignedIn>
         <DashboardLayout>
-          <InventoryView />
+          <Routes>
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/inventory" element={<InventoryView />} />
+
+            <Route path="/ai-tools" element={
+              <div className="py-20 text-center text-slate-400 font-medium">AI Tools module coming soon...</div>
+            } />
+            <Route path="/settings" element={
+              <div className="py-20 text-center text-slate-400 font-medium">Settings module coming soon...</div>
+            } />
+          </Routes>
         </DashboardLayout>
       </SignedIn>
     </>
@@ -29,18 +46,28 @@ export default function App() {
 
 function LoginHero() {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-white p-6">
-      <div className="max-w-md w-full text-center space-y-6">
-        <div className="bg-blue-600 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto shadow-xl shadow-blue-100">
-          <Package className="text-white" size={32} />
+    <div className="min-h-screen flex flex-col items-center justify-center bg-[#F8FAFC] p-6">
+      <div className="max-w-md w-full text-center space-y-8 animate-in fade-in zoom-in duration-500">
+        <div className="bg-blue-600 w-20 h-20 rounded-[2rem] flex items-center justify-center mx-auto shadow-2xl shadow-blue-200">
+          <Package className="text-white" size={40} strokeWidth={2.5} />
         </div>
-        <h1 className="text-3xl font-bold tracking-tight text-slate-900">SaaS Manager</h1>
-        <p className="text-slate-500">Manage multiple organizations and inventory with AI-powered tools.</p>
+
+        <div className="space-y-2">
+          <h1 className="text-4xl font-black tracking-tight text-slate-900">SaaSManager</h1>
+          <p className="text-slate-500 font-medium text-lg leading-relaxed">
+            Professional multi-tenant inventory management with AI-powered insights.
+          </p>
+        </div>
+
         <SignInButton mode="modal">
-          <button className="w-full bg-slate-900 text-white font-bold py-4 rounded-2xl hover:bg-slate-800 transition-all shadow-lg">
+          <button className="w-full bg-slate-900 text-white font-bold py-5 rounded-2xl hover:bg-blue-600 transition-all shadow-xl hover:shadow-blue-100 active:scale-95 group">
             Access Dashboard
           </button>
         </SignInButton>
+
+        <p className="text-slate-400 text-xs font-bold uppercase tracking-[0.2em]">
+          Securely powered by Clerk & AWS
+        </p>
       </div>
     </div>
   );

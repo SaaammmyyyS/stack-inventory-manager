@@ -1,10 +1,12 @@
 package com.inventory.saas.controller;
 
 import com.inventory.saas.dto.InventoryItemDTO;
+import com.inventory.saas.dto.PaginatedResponseDTO;
 import com.inventory.saas.model.InventoryItem;
 import com.inventory.saas.service.InventoryService;
 import com.inventory.saas.repository.TransactionRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -33,10 +35,23 @@ public class InventoryController {
     }
 
     @GetMapping
-    public List<InventoryItemDTO> getAll() {
-        return service.getAllItems().stream()
+    public ResponseEntity<PaginatedResponseDTO<InventoryItemDTO>> getAll(
+            @RequestHeader("X-Tenant-ID") String tenantId,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int limit,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String category
+    ) {
+        Page<InventoryItem> itemPage = service.getAllItemsPaginated(tenantId, search, category, page - 1, limit);
+
+        List<InventoryItemDTO> dtos = itemPage.getContent().stream()
                 .map(this::convertToDto)
                 .collect(Collectors.toList());
+
+        return ResponseEntity.ok(PaginatedResponseDTO.<InventoryItemDTO>builder()
+                .items(dtos)
+                .total(itemPage.getTotalElements())
+                .build());
     }
 
     @PostMapping

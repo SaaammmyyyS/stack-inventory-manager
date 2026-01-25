@@ -5,6 +5,10 @@ import com.inventory.saas.model.InventoryItem;
 import com.inventory.saas.model.StockTransaction;
 import com.inventory.saas.repository.InventoryRepository;
 import com.inventory.saas.repository.TransactionRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
@@ -19,6 +23,16 @@ public class InventoryService {
     public InventoryService(InventoryRepository repository, TransactionRepository transactionRepository) {
         this.repository = repository;
         this.transactionRepository = transactionRepository;
+    }
+
+    public Page<InventoryItem> getAllItemsPaginated(String tenantId, String search, String category, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("name").ascending());
+
+        if ((search != null && !search.isEmpty()) || (category != null && !category.isEmpty())) {
+            return repository.findByFilters(tenantId, search, category, pageable);
+        }
+
+        return repository.findByTenantIdAndDeletedFalse(tenantId, pageable);
     }
 
     public List<InventoryItem> getAllItems() {
@@ -91,9 +105,7 @@ public class InventoryService {
     @Transactional
     public void hardDeleteItem(UUID id) {
         transactionRepository.deleteByInventoryItemIdNative(id);
-
         repository.flush();
-
         repository.hardDeleteNative(id);
     }
 

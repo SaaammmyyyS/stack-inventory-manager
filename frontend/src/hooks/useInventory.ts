@@ -21,6 +21,13 @@ export interface StockTransaction {
   createdAt: string;
 }
 
+export interface FetchOptions {
+  page?: number;
+  limit?: number;
+  search?: string;
+  category?: string;
+}
+
 const API_BASE_URL = `${import.meta.env.VITE_API_BASE_URL}/api/inventory`;
 const TRANSACTION_URL = `${import.meta.env.VITE_API_BASE_URL}/api/transactions`;
 
@@ -30,6 +37,7 @@ export function useInventory() {
   const { organization } = useOrganization();
 
   const [items, setItems] = useState<InventoryItem[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [trashedItems, setTrashedItems] = useState<InventoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -42,19 +50,34 @@ export function useInventory() {
     (state, newItem: InventoryItem) => [...state, { ...newItem, isSending: true }]
   );
 
-  const fetchItems = useCallback(async () => {
+  const fetchItems = useCallback(async (options: FetchOptions = {}) => {
     setIsLoading(true);
+    const { page = 1, limit = 10, search = "", category = "" } = options;
+
     try {
       const token = await getToken();
-      const response = await fetch(API_BASE_URL, {
+
+      const query = new URLSearchParams({
+        page: page.toString(),
+        limit: limit.toString(),
+        search,
+        category,
+      });
+
+      const response = await fetch(`${API_BASE_URL}?${query.toString()}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'X-Tenant-ID': tenantId,
           'Content-Type': 'application/json'
         }
       });
+
       if (!response.ok) throw new Error("Could not load inventory");
-      setItems(await response.json());
+
+      const data = await response.json();
+
+      setItems(data.items || []);
+      setTotalCount(data.total || 0);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Connection failed");
     } finally {
@@ -206,6 +229,7 @@ export function useInventory() {
 
   return {
     items,
+    totalCount,
     trashedItems,
     optimisticItems,
     isLoading,

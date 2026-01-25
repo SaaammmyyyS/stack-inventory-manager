@@ -1,6 +1,16 @@
-import { useState } from 'react';
-import { useInventory, type StockTransaction } from '../hooks/useInventory';
-import { Plus, Trash2, Loader2, AlertCircle, Package } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { useInventory, type StockTransaction } from '@/hooks/useInventory';
+import { Plus, Trash2, Loader2, AlertCircle, Package, Search } from 'lucide-react';
+
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 import ActiveInventoryTable from './inventory/ActiveInventoryTable';
 import TrashBinTable from './inventory/TrashBinTable';
@@ -11,7 +21,8 @@ import DeleteConfirmModal from './inventory/DeleteConfirmModal';
 
 export default function InventoryView() {
   const {
-    optimisticItems,
+    items,
+    totalCount,
     isLoading,
     error,
     isPending,
@@ -22,10 +33,16 @@ export default function InventoryView() {
     restoreItem,
     permanentlyDelete,
     fetchTrash,
-    trashedItems
+    trashedItems,
+    fetchItems
   } = useInventory();
 
   const [currentView, setCurrentView] = useState<'active' | 'trash'>('active');
+  const [search, setSearch] = useState("");
+  const [category, setCategory] = useState("all");
+  const [page, setPage] = useState(1);
+  const limit = 10;
+
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [adjustItem, setAdjustItem] = useState<{id: string, name: string, type: 'STOCK_IN' | 'STOCK_OUT'} | null>(null);
   const [historyItem, setHistoryItem] = useState<{id: string, name: string} | null>(null);
@@ -33,6 +50,25 @@ export default function InventoryView() {
 
   const [historyData, setHistoryData] = useState<StockTransaction[]>([]);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+
+  useEffect(() => {
+    if (currentView === 'active') {
+      const timer = setTimeout(() => {
+        fetchItems({
+          page,
+          limit,
+          search,
+          category: category === 'all' ? '' : category
+        });
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [search, category, page, currentView, fetchItems]);
+
+  const handleSearchChange = (val: string) => {
+    setSearch(val);
+    setPage(1);
+  };
 
   const handleAddProduct = async (formData: FormData) => {
     await addItem(
@@ -47,8 +83,6 @@ export default function InventoryView() {
   const handleOpenHistory = async (id: string, name: string) => {
     setHistoryItem({ id, name });
     setIsHistoryLoading(true);
-    setHistoryData([]);
-
     try {
       const data = await fetchHistory(id);
       setHistoryData(data);
@@ -60,8 +94,8 @@ export default function InventoryView() {
   };
 
   return (
-    <div className="relative animate-in fade-in duration-500 pb-10">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4 px-4 md:px-0">
+    <div className="relative animate-in fade-in duration-500 pb-10 max-w-7xl mx-auto px-4">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4 pt-8">
         <div>
           <h1 className="text-3xl font-black text-slate-900 tracking-tight">
             {currentView === 'active' ? 'Inventory' : 'Recycle Bin'}
@@ -74,47 +108,80 @@ export default function InventoryView() {
         </div>
 
         <div className="flex gap-3">
-          <button
+          <Button
+            variant="outline"
             onClick={() => setCurrentView(currentView === 'active' ? 'trash' : 'active')}
-            className="flex items-center gap-2 px-5 py-3 rounded-xl font-bold text-sm transition-all border border-slate-200 hover:bg-slate-50 text-slate-600"
+            className="rounded-xl font-bold h-12"
           >
-            {currentView === 'active' ? <Trash2 size={18} /> : <Package size={18} />}
+            {currentView === 'active' ? <Trash2 className="mr-2 h-4 w-4" /> : <Package className="mr-2 h-4 w-4" />}
             {currentView === 'active' ? 'View Trash' : 'Back to Inventory'}
-          </button>
+          </Button>
 
           {currentView === 'active' && (
-            <button
+            <Button
               onClick={() => setIsAddModalOpen(true)}
-              className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-3 rounded-xl shadow-lg shadow-blue-200 flex items-center gap-2 transition-all active:scale-95 text-sm"
+              className="bg-blue-600 hover:bg-blue-700 text-white font-bold h-12 rounded-xl shadow-lg shadow-blue-200"
             >
-              <Plus size={20} /> Add Product
-            </button>
+              <Plus className="mr-2 h-5 w-5" /> Add Product
+            </Button>
           )}
         </div>
       </div>
 
+      {currentView === 'active' && (
+        <div className="flex flex-col sm:flex-row gap-4 mb-6">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Input
+              placeholder="Search by name or SKU..."
+              value={search}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              className="pl-10 h-12 rounded-xl border-slate-200 focus:ring-blue-500"
+            />
+          </div>
+          <Select value={category} onValueChange={(v) => { setCategory(v); setPage(1); }}>
+            <SelectTrigger className="w-full sm:w-48 h-12 rounded-xl border-slate-200">
+              <SelectValue placeholder="All Categories" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Categories</SelectItem>
+              <SelectItem value="Electronics">Electronics</SelectItem>
+              <SelectItem value="Furniture">Furniture</SelectItem>
+              <SelectItem value="Office">Office</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
       {error && (
-        <div className="mx-4 md:mx-0 mb-6 p-4 bg-red-50 border border-red-100 text-red-600 rounded-2xl flex items-center gap-3">
+        <div className="mb-6 p-4 bg-red-50 border border-red-100 text-red-600 rounded-2xl flex items-center gap-3">
           <AlertCircle size={20} />
           <p className="font-semibold text-sm">{error}</p>
         </div>
       )}
 
       {currentView === 'active' && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10 px-4 md:px-0">
-          <StatCard title="Total SKUs" value={optimisticItems.length} />
-          <StatCard title="Total Units" value={optimisticItems.reduce((acc, item) => acc + item.quantity, 0)} />
-          <StatCard title="Low Stock" value={optimisticItems.filter(i => i.quantity <= 5).length} alert />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+          <StatCard title="Total SKUs" value={totalCount} />
+          <StatCard title="Total Units" value={items.reduce((acc, item) => acc + item.quantity, 0)} />
+          <StatCard title="Low Stock" value={items.filter(i => i.quantity <= 5).length} alert />
         </div>
       )}
 
-      <div className="mx-4 md:mx-0 bg-white rounded-[2rem] border border-slate-200 shadow-sm overflow-hidden">
-        {isLoading && optimisticItems.length === 0 ? (
-          <div className="p-20 flex justify-center"><Loader2 className="animate-spin text-blue-300" size={40} /></div>
+      <div className="bg-white rounded-[2rem] border border-slate-200 shadow-sm overflow-hidden min-h-[400px]">
+        {isLoading && items.length === 0 ? (
+          <div className="p-20 flex flex-col items-center justify-center gap-4">
+            <Loader2 className="animate-spin text-blue-500" size={40} />
+            <p className="text-slate-400 font-medium">Syncing inventory...</p>
+          </div>
         ) : (
           currentView === 'active' ? (
             <ActiveInventoryTable
-              items={optimisticItems}
+              items={items}
+              totalCount={totalCount}
+              currentPage={page}
+              pageSize={limit}
+              onPageChange={setPage}
               onAdjust={(id, name, type) => setAdjustItem({id, name, type})}
               onHistory={handleOpenHistory}
               onDelete={(id, name) => setItemToDelete({id, name})}
