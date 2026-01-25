@@ -1,5 +1,11 @@
 target/
+bin/
 .git
-.mvn
+.gitignore
 .dockerignore
 Dockerfile
+.mvn
+mvnw
+mvnw.cmd
+pom.xml.releaseBackup
+release.properties

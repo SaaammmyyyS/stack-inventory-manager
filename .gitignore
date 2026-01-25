@@ -1,13 +1,30 @@
 # --- Java / Maven ---
-backend/target/
-backend/*.jar
-backend/.mvn/
+saas-manager/target/
+saas-manager/*.jar
+saas-manager/.mvn/
 
 # --- React / Node ---
 frontend/node_modules/
 frontend/dist/
+
+# --- Secrets (CRITICAL) ---
+.env
+.env.production
+.env.local
 frontend/.env
-frontend/.env.local
+frontend/.env.production
+frontend/.env.development
+saas-manager/.env
+terraform.tfvars
+*.tfvars
+*.tfvars.json
+secrets.txt
+*.pem
+
+# --- Terraform ---
+.terraform/
+*.tfstate
+*.tfstate.*
 
 # --- IDE & System ---
 .idea/
@@ -16,18 +33,7 @@ frontend/.env.local
 .DS_Store
 Thumbs.db
 
-# --- Secrets (Safety First!) ---
-*.pem
-secrets.txt
-
-# Ignore all env files
-*.env*
-
-# Terraform
-**/.terraform/
-*.tfstate
-*.tfstate.*
-
-# Java/Maven
+# --- General Patterns ---
+**/node_modules/
 **/target/
-.mvn/
+**/dist/

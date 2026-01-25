@@ -1,114 +1,72 @@
-# 1. COST PROTECTION
-resource "aws_budgets_budget" "cost_guardian" {
-  name              = "monthly-budget-limit"
-  budget_type       = "COST"
-  limit_amount      = "1.00"
-  limit_unit        = "USD"
-  time_unit         = "MONTHLY"
+# Variables (Values will be read from terraform.tfvars)
+variable "supabase_password" { type = string, sensitive = true }
+variable "db_url"            { type = string }
+variable "db_username"       { type = string }
+variable "clerk_issuer_uri"  { type = string }
 
-  notification {
-    comparison_operator        = "GREATER_THAN"
-    threshold                  = 100
-    threshold_type             = "PERCENTAGE"
-    notification_type          = "ACTUAL"
-    subscriber_email_addresses = ["ivansamwabina@gmail.com"]
-  }
+provider "aws" {
+  region = "ap-southeast-1"
 }
 
+# 1. ECR Repositories
 resource "aws_ecr_repository" "backend" {
-  name                 = "saas-backend"
-  image_tag_mutability = "MUTABLE"
-  force_delete         = true
-
-  image_scanning_configuration {
-    scan_on_push = true
-  }
+  name = "saas-backend"
+  force_delete = true
 }
 
 resource "aws_ecr_repository" "frontend" {
-  name                 = "saas-frontend"
-  image_tag_mutability = "MUTABLE"
-  force_delete         = true
-
-  image_scanning_configuration {
-    scan_on_push = true
-  }
+  name = "saas-frontend"
+  force_delete = true
 }
 
-output "backend_repo_url" {
-  value = aws_ecr_repository.backend.repository_url
-}
-
-output "frontend_repo_url" {
-  value = aws_ecr_repository.frontend.repository_url
-}
-
-# 1. IAM Role so App Runner can "see" your images
-resource "aws_iam_role" "apprunner_service_role" {
-  name = "apprunner-ecr-access-role"
-
+# 2. IAM Role for App Runner
+resource "aws_iam_role" "apprunner_role" {
+  name = "apprunner-ecr-role"
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Principal = {
-          Service = "build.apprunner.amazonaws.com"
-        }
-      }
-    ]
+    Statement = [{
+      Action = "sts:AssumeRole"
+      Effect = "Allow"
+      Principal = { Service = "build.apprunner.amazonaws.com" }
+    }]
   })
 }
 
-resource "aws_iam_role_policy_attachment" "apprunner_ecr_policy" {
-  role       = aws_iam_role.apprunner_service_role.name
+resource "aws_iam_role_policy_attachment" "apprunner_policy" {
+  role       = aws_iam_role.apprunner_role.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSAppRunnerServicePolicyForECRAccess"
 }
 
-# 2. The Backend Service (saas-manager)
+# 3. Backend Service
 resource "aws_apprunner_service" "backend" {
   service_name = "inventory-backend"
-
   source_configuration {
-    authentication_configuration {
-      access_role_arn = aws_iam_role.apprunner_service_role.arn
-    }
+    authentication_configuration { access_role_arn = aws_iam_role.apprunner_role.arn }
     image_repository {
-      image_identifier = "${aws_ecr_repository.backend.repository_url}:latest"
+      image_identifier      = "${aws_ecr_repository.backend.repository_url}:latest"
       image_repository_type = "ECR"
       image_configuration {
         port = "8080"
+        runtime_environment_variables = {
+          DB_URL           = var.db_url
+          DB_USERNAME      = var.db_username
+          DB_PASSWORD      = var.supabase_password
+          CLERK_ISSUER_URI = var.clerk_issuer_uri
+        }
       }
     }
-    auto_deployments_enabled = true
   }
 }
 
-# 3. Output the live URL
-output "live_backend_url" {
-  value = "https://${aws_apprunner_service.backend.service_url}"
-}
-
-# The Frontend Service (React)
+# 4. Frontend Service
 resource "aws_apprunner_service" "frontend" {
   service_name = "inventory-frontend"
-
   source_configuration {
-    authentication_configuration {
-      access_role_arn = aws_iam_role.apprunner_service_role.arn
-    }
+    authentication_configuration { access_role_arn = aws_iam_role.apprunner_role.arn }
     image_repository {
-      image_identifier = "${aws_ecr_repository.frontend.repository_url}:latest"
+      image_identifier      = "${aws_ecr_repository.frontend.repository_url}:latest"
       image_repository_type = "ECR"
-      image_configuration {
-        port = "80" # Nginx usually runs on 80
-      }
+      image_configuration { port = "80" }
     }
-    auto_deployments_enabled = true
   }
-}
-
-output "live_website_url" {
-  value = "https://${aws_apprunner_service.frontend.service_url}"
 }

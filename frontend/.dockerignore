@@ -1,5 +1,10 @@
 node_modules
 dist
 .git
+.gitignore
 .dockerignore
 Dockerfile
+.env
+.env.local
+.env.production
+README.md
