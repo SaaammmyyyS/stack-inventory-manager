@@ -29,17 +29,16 @@ public class InventoryService {
         return repository.save(item);
     }
 
+    @Transactional
     public InventoryItem updateItem(UUID id, InventoryItem details) {
-        return repository.findById(id)
-                .map(item -> {
-                    item.setName(details.getName());
-                    item.setSku(details.getSku());
-                    item.setCategory(details.getCategory());
-                    item.setMinThreshold(details.getMinThreshold());
-                    item.setPrice(details.getPrice());
-                    return repository.save(item);
-                })
-                .orElseThrow(() -> new ResourceNotFoundException("Item with ID " + id + " not found"));
+        return repository.findById(id).map(item -> {
+            item.setName(details.getName());
+            item.setSku(details.getSku());
+            item.setCategory(details.getCategory());
+            item.setMinThreshold(details.getMinThreshold());
+            item.setPrice(details.getPrice());
+            return repository.save(item);
+        }).orElseThrow(() -> new ResourceNotFoundException("Item not found"));
     }
 
     @Transactional
@@ -48,13 +47,7 @@ public class InventoryService {
                 .orElseThrow(() -> new ResourceNotFoundException("Inventory item not found"));
 
         int adjustment = type.equalsIgnoreCase("STOCK_OUT") ? -Math.abs(amount) : Math.abs(amount);
-        int newQuantity = item.getQuantity() + adjustment;
-
-        if (newQuantity < 0) {
-            throw new IllegalStateException("Insufficient stock: Cannot remove " + amount + " units. Current balance: " + item.getQuantity());
-        }
-
-        item.setQuantity(newQuantity);
+        item.setQuantity(item.getQuantity() + adjustment);
         repository.save(item);
 
         StockTransaction transaction = new StockTransaction();
@@ -71,19 +64,37 @@ public class InventoryService {
     @Transactional
     public void deleteItem(UUID id, String performedBy) {
         InventoryItem item = repository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Cannot delete: Item not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Item not found"));
 
         StockTransaction deleteLog = new StockTransaction();
         deleteLog.setInventoryItem(item);
         deleteLog.setTenantId(item.getTenantId());
         deleteLog.setQuantityChange(0);
         deleteLog.setType("DELETED");
-        deleteLog.setReason("Soft delete performed");
-        deleteLog.setPerformedBy(performedBy != null ? performedBy : "Admin");
+        deleteLog.setReason("Item moved to recycle bin");
+        deleteLog.setPerformedBy(performedBy);
 
         transactionRepository.save(deleteLog);
 
         repository.softDeleteById(id);
+    }
+
+    public List<InventoryItem> getTrashedItems(String tenantId) {
+        return repository.findTrashedItems(tenantId);
+    }
+
+    @Transactional
+    public void restoreItem(UUID id) {
+        repository.restoreById(id);
+    }
+
+    @Transactional
+    public void hardDeleteItem(UUID id) {
+        transactionRepository.deleteByInventoryItemIdNative(id);
+
+        repository.flush();
+
+        repository.hardDeleteNative(id);
     }
 
     public List<StockTransaction> getItemHistory(UUID id) {

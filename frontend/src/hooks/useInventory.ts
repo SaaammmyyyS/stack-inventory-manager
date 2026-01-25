@@ -8,13 +8,14 @@ export interface InventoryItem {
   tenantId: string;
   sku?: string;
   category?: string;
+  deletedBy?: string;
   isSending?: boolean;
 }
 
 export interface StockTransaction {
   id: string;
   quantityChange: number;
-  type: 'STOCK_IN' | 'STOCK_OUT' | 'DELETED';
+  type: 'STOCK_IN' | 'STOCK_OUT' | 'DELETED' | 'RESTORED';
   reason: string;
   performedBy?: string;
   createdAt: string;
@@ -27,12 +28,16 @@ export function useInventory() {
   const { getToken } = useAuth();
   const { user } = useUser();
   const { organization } = useOrganization();
+
   const [items, setItems] = useState<InventoryItem[]>([]);
+  const [trashedItems, setTrashedItems] = useState<InventoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  const [optimisticItems, addOptimisticItem] = useOptimistic(
+  const tenantId = organization?.id || "personal";
+
+  const [optimisticItems] = useOptimistic(
     items,
     (state, newItem: InventoryItem) => [...state, { ...newItem, isSending: true }]
   );
@@ -44,7 +49,7 @@ export function useInventory() {
       const response = await fetch(API_BASE_URL, {
         headers: {
           'Authorization': `Bearer ${token}`,
-          'X-Tenant-ID': organization?.id || "personal",
+          'X-Tenant-ID': tenantId,
           'Content-Type': 'application/json'
         }
       });
@@ -55,30 +60,63 @@ export function useInventory() {
     } finally {
       setIsLoading(false);
     }
-  }, [getToken, organization?.id]);
+  }, [getToken, tenantId]);
 
-  useEffect(() => { fetchItems(); }, [fetchItems]);
+  const fetchTrash = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const token = await getToken();
+      const response = await fetch(`${API_BASE_URL}/trash`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'X-Tenant-ID': tenantId,
+          'Content-Type': 'application/json'
+        }
+      });
+      if (!response.ok) throw new Error("Could not load trash");
+      setTrashedItems(await response.json());
+    } catch (err) {
+      setError("Failed to load recycle bin");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [getToken, tenantId]);
 
-  const addItem = async (name: string, quantity: number, sku?: string, category?: string) => {
-    const tempItem: InventoryItem = { id: Math.random().toString(), name, quantity, sku, category, tenantId: 'temp' };
+  const fetchHistory = useCallback(async (itemId: string): Promise<StockTransaction[]> => {
+    try {
+      const token = await getToken();
+      const response = await fetch(`${TRANSACTION_URL}/${itemId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'X-Tenant-ID': tenantId,
+          'Content-Type': 'application/json'
+        }
+      });
+      if (!response.ok) throw new Error("Could not load history");
+      return await response.json();
+    } catch (err) {
+      console.error(err);
+      return [];
+    }
+  }, [getToken, tenantId]);
+
+  const addItem = async (name: string, quantity: number, sku: string, category: string) => {
     startTransition(async () => {
-      addOptimisticItem(tempItem);
       try {
         const token = await getToken();
         const response = await fetch(API_BASE_URL, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
-            'X-Tenant-ID': organization?.id || "personal",
+            'X-Tenant-ID': tenantId,
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({ name, quantity, sku, category })
         });
-        if (!response.ok) throw new Error("Failed to save");
+        if (!response.ok) throw new Error("Failed to add item");
         fetchItems();
       } catch (err) {
-        setError("Failed to save item.");
-        fetchItems();
+        setError("Failed to add product");
       }
     });
   };
@@ -90,7 +128,7 @@ export function useInventory() {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
-          'X-Tenant-ID': organization?.id || "personal",
+          'X-Tenant-ID': tenantId,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
@@ -107,59 +145,79 @@ export function useInventory() {
     }
   };
 
-  const fetchHistory = async (itemId: string): Promise<StockTransaction[]> => {
-    try {
-      const token = await getToken();
-      const response = await fetch(`${TRANSACTION_URL}/${itemId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'X-Tenant-ID': organization?.id || "personal"
-        }
-      });
-      if (!response.ok) throw new Error("Failed to load history");
-      return await response.json();
-    } catch (err) {
-      console.error(err);
-      return [];
-    }
-  };
-
   const deleteItem = async (id: string) => {
     try {
       const token = await getToken();
-
       const adminName = user?.fullName || user?.primaryEmailAddress?.emailAddress || "Admin";
-
       const response = await fetch(`${API_BASE_URL}/${id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
-          'X-Tenant-ID': organization?.id || "personal",
+          'X-Tenant-ID': tenantId,
           'X-Performed-By': adminName
         }
       });
-
-      if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.message || "Delete failed");
-      }
-
+      if (!response.ok) throw new Error("Delete failed");
       setItems(prev => prev.filter(item => item.id !== id));
-
+      fetchTrash();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Delete failed.");
+      setError("Delete failed.");
     }
   };
 
+  const restoreItem = async (id: string) => {
+    try {
+      const token = await getToken();
+      const response = await fetch(`${API_BASE_URL}/restore/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'X-Tenant-ID': tenantId
+        }
+      });
+      if (!response.ok) throw new Error("Restore failed");
+      fetchItems();
+      fetchTrash();
+    } catch (err) {
+      setError("Failed to restore item");
+    }
+  };
+
+  const permanentlyDelete = async (id: string) => {
+    try {
+      const token = await getToken();
+      const response = await fetch(`${API_BASE_URL}/permanent/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'X-Tenant-ID': tenantId
+        }
+      });
+      if (!response.ok) throw new Error("Permanent delete failed");
+      setTrashedItems(prev => prev.filter(item => item.id !== id));
+    } catch (err) {
+      setError("Failed to permanently remove item");
+    }
+  };
+
+  useEffect(() => {
+    fetchItems();
+  }, [fetchItems]);
+
   return {
     items,
+    trashedItems,
     optimisticItems,
     isLoading,
     error,
     isPending,
     addItem,
     deleteItem,
+    restoreItem,
+    permanentlyDelete,
     recordMovement,
+    fetchTrash,
+    fetchItems,
     fetchHistory
   };
 }

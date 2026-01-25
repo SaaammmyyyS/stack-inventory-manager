@@ -40,7 +40,4 @@ public class InventoryItem {
 
     @OneToMany(mappedBy = "inventoryItem", cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     private List<StockTransaction> transactions;
-
-    @Column(name = "deleted", insertable = false, updatable = false)
-    private String deleted;
 }
