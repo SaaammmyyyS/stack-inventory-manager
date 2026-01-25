@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { UserButton, useUser, OrganizationSwitcher } from "@clerk/clerk-react"; // Added OrganizationSwitcher
+import { UserButton, useUser, OrganizationSwitcher } from "@clerk/clerk-react";
 import {
   Package,
   LayoutDashboard,
@@ -7,8 +7,7 @@ import {
   MessageSquare,
   Menu,
   X,
-  ChevronRight,
-  Building2
+  ChevronRight
 } from "lucide-react";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {

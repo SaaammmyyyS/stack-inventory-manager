@@ -5,7 +5,7 @@ import { useOrganization } from "@clerk/clerk-react";
 export default function Dashboard() {
   const [items, setItems] = useState([]);
   const { fetchWithTenant } = useInventoryApi();
-  const { organization } = useOrganization(); // Monitor for changes
+  const { organization } = useOrganization();
 
   useEffect(() => {
     const loadItems = async () => {
