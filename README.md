@@ -1,6 +1,6 @@
 # 📦 stack-inventory-manager
 
-An enterprise-grade, **Multi-tenant SaaS** platform for real-time inventory tracking. Architected with a high-performance **Spring Boot** reactive core, a type-safe **React 19** frontend, and a **fully-automated AWS ecosystem** provisioned through **Terraform**.
+An enterprise-grade, **Multi-tenant SaaS** platform for real-time inventory tracking. Architected with a high-performance **Spring Boot 3.4** core, a type-safe **React 19** frontend, and a **fully-automated AWS ecosystem** provisioned through **Terraform**.
 
 > **Key Pillar:** Secure data isolation using Hibernate `@TenantId`, granular RBAC, and **Immutable Infrastructure** via Terraform to ensure cost-optimized, reproducible cloud deployments.
 
@@ -19,7 +19,7 @@ graph TD
         WebApp -.->|Session Token| Clerk
     end
 
-    subgraph API_Layer [Backend: Spring Boot 4]
+    subgraph API_Layer [Backend: Spring Boot 3.4]
         WebApp -- "HTTP + JWT + X-Tenant-ID" --> Gateway[Spring Security]
         Gateway -- "Role Extraction" --> RBAC{RBAC Filter}
         RBAC -- "Admin/Member/User" --> Controller[Inventory Controller]
@@ -48,10 +48,10 @@ graph TD
 * **Auth:** Clerk (Identity & User Management)
 
 ### Backend (`saas-manager`)
-* **Framework:** Spring Boot 4
+* **Framework:** Spring Boot 3.4
 * **Language:** Java 21 (Amazon Corretto)
 * **ORM:** Hibernate 7 (Native `@SoftDelete` & `@TenantId` support)
-* **Database:** Supabase (PostgreSQL)
+* **Database:** Supabase (PostgreSQL) + H2 (Testing)
 * **Security:** Spring Security + Method-level RBAC (`@PreAuthorize`)
 
 ### Infrastructure & DevOps
@@ -63,16 +63,25 @@ graph TD
 ## Key Features
 
 - **Multi-tenant Isolation:** Automatic data filtering via Hibernate `@TenantId` and the `X-Tenant-ID` header, ensuring users never see data from other organizations.
+- **Automated Testing Suite:** 100% test coverage for multi-tenant isolation using H2 in-memory databases, catching tenant leaks during the build phase.
 - **Granular RBAC:** Role-Based Access Control protecting endpoints for `ADMIN`, `MEMBER`, and `USER` roles.
 - **Audit-Ready Soft Delete:** Items marked for deletion move to a "Recycle Bin" instead of being erased, maintaining a `deletedBy` audit trail.
-- **Stock Movement History:** Automated logging of every `STOCK_IN` and `STOCK_OUT` event with user attribution.
 - **Strict DTO Pattern:** Total isolation between database entities and API responses for maximum security and flexibility.
 
-## Deployment (AWS)
+## 🛠️ Local Development & Testing
 
-### 1. Build and Push to ECR
-Ensure you are authenticated with AWS ECR, then run the build commands:
+### Prerequisites
+- JDK 21+ (Amazon Corretto)
+- Node.js 20+
+- Docker
 
+### Running Tests
+To verify the multi-tenancy logic and security filters without connecting to your production DB:
+
+```bash
+cd saas-manager
+mvn clean test
+```
 ```bash
 # Build & Push Backend
 docker build -t saas-backend ./saas-manager
@@ -80,46 +89,28 @@ docker tag saas-backend:latest YOUR_ACCOUNT_ID.dkr.ecr.ap-southeast-1.amazonaws.
 docker push YOUR_ACCOUNT_ID.dkr.ecr.ap-southeast-1.amazonaws.com/saas-backend:latest
 ```
 
-```bash
-# Build & Push Frontend
-docker build -t saas-frontend ./frontend
-docker tag saas-frontend:latest YOUR_ACCOUNT_ID.dkr.ecr.ap-southeast-1.amazonaws.com/saas-frontend:latest
-docker push YOUR_ACCOUNT_ID.dkr.ecr.ap-southeast-1.amazonaws.com/saas-frontend:latest
-```
-
 ## Why I Built This
 
-I developed **stack-inventory-manager** to solve the complex architectural challenges inherent in modern SaaS environments. Most "to-do" or "inventory" tutorials skip the critical realities of production software—security, multi-tenancy, and data integrity. This project serves as a deep dive into:
+I developed **stack-inventory-manager** to solve the complex architectural challenges inherent in modern SaaS environments.
 
 ### 1. The "SaaS First" Mentality
-I wanted to move beyond a single-user application. By implementing **Multi-tenancy at the database level**, I tackled the challenge of data isolation. This ensures that the platform can scale to support thousands of independent organizations while maintaining strict "siloed" security.
+I implemented **Multi-tenancy at the database level**. This ensures that the platform can scale to support thousands of independent organizations while maintaining strict "siloed" security.
 
 ### 2. High-Consistency Architecture
-In inventory management, a single desync in stock levels can ruin a business operation. I built this using a **Transaction-first approach**, where every stock movement is backed by an audit trail. Using **Spring Boot 4 and Java 21**, I leveraged modern language features to ensure the backend is both type-safe and performant.
+In inventory management, a single desync in stock levels can ruin business operations. I built this using a **Transaction-first approach**, where every stock movement is backed by an audit trail. 
 
-### 3. Cloud-Native Scalability
-Building the app was only half the battle. I included **Terraform and Docker** configurations to demonstrate an understanding of the full software development lifecycle (SDLC)—from a local dev environment to a horizontally scalable **AWS App Runner** deployment.
-
-### Deployment Flow
-```mermaid
-graph LR
-    TF[Terraform] --> ECR[AWS ECR]
-    TF --> AR[AWS App Runner]
-    ECR --> AR
-    AR --> Internet((Public URL))
-```
+### 3. Test-Driven Reliability
+Multi-tenant systems are high-risk. I implemented a robust integration testing layer that mocks JWT authentication and simulates cross-tenant attacks. By using Spring’s `@ActiveProfiles("test")`, the system switches to H2 during builds, ensuring logic changes never compromise data security.
 
 ## Architectural Decisions (Cost & Efficiency)
 
-Choosing the right stack wasn't just about performance; it was about **operational efficiency** and **minimizing overhead**. As a solo engineer, I selected services that offer the best balance between "Enterprise Power" and "Startup Budget."
-
 | Service | Choice | Why? (Cost & Logic) |
 | :--- | :--- | :--- |
-| **Compute** | **AWS App Runner** | Chosen over EKS/ECS to eliminate the "idle cost" of managing clusters. It provides a managed Fargate environment that scales based on traffic, ensuring I only pay for what I use. |
-| **Database** | **Supabase (PostgreSQL)** | Leverages a high-performance hosted Postgres instance with a generous free tier. This removed the high monthly cost of an AWS RDS instance while providing built-in connection pooling. |
-| **Auth** | **Clerk** | Outsourcing Identity Management to Clerk saved weeks of development time on secure login, MFA, and session management, reducing "Time to Market" and security liability. |
-| **Registry** | **Amazon ECR** | Keeping images within the AWS ecosystem (ap-southeast-1) reduces data transfer costs and ensures lightning-fast deployments to App Runner. |
-| **IaC** | **Terraform** | Automating the setup with IaC prevents "Cloud Waste" (forgotten resources) and allows for a 1-click `terraform destroy` to wipe the environment when not in use. |
+| **Compute** | **AWS App Runner** | Chosen over EKS/ECS to eliminate the "idle cost" of managing clusters. Scalable managed Fargate. |
+| **Database** | **Supabase (PostgreSQL)** | High-performance hosted Postgres with a generous free tier. Built-in connection pooling. |
+| **Testing DB** | **H2 (In-Memory)** | Zero-cost, high-speed isolation. Prevents "pollution" of the production database. |
+| **Auth** | **Clerk** | Outsourcing Identity Management saved weeks of development time on MFA and session management. |
+| **IaC** | **Terraform** | Automating the setup prevents "Cloud Waste" and allows for 1-click `terraform destroy`. |
 
 ### 🛠️ The "Zero-Waste" Deployment Flow
-By utilizing **Docker multi-stage builds**, the final production images are stripped of build-tools (like Maven/Node), resulting in tiny footprints. This reduces storage costs in ECR and speeds up deployment times on App Runner.
+By utilizing **Docker multi-stage builds**, the final production images are stripped of build-tools, resulting in tiny footprints. This reduces storage costs in ECR and speeds up deployment times.
