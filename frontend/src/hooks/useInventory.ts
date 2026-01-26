@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useOptimistic, useTransition } from 'react';
+import { useState, useCallback, useEffect, useOptimistic, useTransition, useMemo } from 'react';
 import { useAuth, useOrganization, useUser } from "@clerk/clerk-react";
 
 export interface InventoryItem {
@@ -8,6 +8,8 @@ export interface InventoryItem {
   tenantId: string;
   sku?: string;
   category?: string;
+  price?: number;
+  minThreshold?: number;
   deletedBy?: string;
   isSending?: boolean;
 }
@@ -34,7 +36,7 @@ const TRANSACTION_URL = `${import.meta.env.VITE_API_BASE_URL}/api/transactions`;
 export function useInventory() {
   const { getToken } = useAuth();
   const { user } = useUser();
-  const { organization } = useOrganization();
+  const { organization, membership } = useOrganization();
 
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [totalCount, setTotalCount] = useState(0);
@@ -44,6 +46,16 @@ export function useInventory() {
   const [isPending, startTransition] = useTransition();
 
   const tenantId = organization?.id || "personal";
+
+  const isAdmin = useMemo(() => {
+    const isOrgAdmin = membership?.role === "org:admin";
+    const isMetadataAdmin = user?.publicMetadata?.role === 'admin';
+    return isOrgAdmin || isMetadataAdmin;
+  }, [membership, user]);
+
+  const getAuthToken = useCallback(() =>
+    getToken({ template: "spring-boot-backend" }),
+  [getToken]);
 
   const [optimisticItems] = useOptimistic(
     items,
@@ -55,8 +67,7 @@ export function useInventory() {
     const { page = 1, limit = 10, search = "", category = "" } = options;
 
     try {
-      const token = await getToken();
-
+      const token = await getAuthToken();
       const query = new URLSearchParams({
         page: page.toString(),
         limit: limit.toString(),
@@ -73,9 +84,7 @@ export function useInventory() {
       });
 
       if (!response.ok) throw new Error("Could not load inventory");
-
       const data = await response.json();
-
       setItems(data.items || []);
       setTotalCount(data.total || 0);
     } catch (err) {
@@ -83,12 +92,12 @@ export function useInventory() {
     } finally {
       setIsLoading(false);
     }
-  }, [getToken, tenantId]);
+  }, [getAuthToken, tenantId]);
 
   const fetchTrash = useCallback(async () => {
     setIsLoading(true);
     try {
-      const token = await getToken();
+      const token = await getAuthToken();
       const response = await fetch(`${API_BASE_URL}/trash`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -97,17 +106,18 @@ export function useInventory() {
         }
       });
       if (!response.ok) throw new Error("Could not load trash");
-      setTrashedItems(await response.json());
+      const data = await response.json();
+      setTrashedItems(data || []);
     } catch (err) {
       setError("Failed to load recycle bin");
     } finally {
       setIsLoading(false);
     }
-  }, [getToken, tenantId]);
+  }, [getAuthToken, tenantId]);
 
   const fetchHistory = useCallback(async (itemId: string): Promise<StockTransaction[]> => {
     try {
-      const token = await getToken();
+      const token = await getAuthToken();
       const response = await fetch(`${TRANSACTION_URL}/${itemId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -121,12 +131,12 @@ export function useInventory() {
       console.error(err);
       return [];
     }
-  }, [getToken, tenantId]);
+  }, [getAuthToken, tenantId]);
 
-  const addItem = async (name: string, quantity: number, sku: string, category: string) => {
+  const addItem = async (data: any) => {
     startTransition(async () => {
       try {
-        const token = await getToken();
+        const token = await getAuthToken();
         const response = await fetch(API_BASE_URL, {
           method: 'POST',
           headers: {
@@ -134,19 +144,20 @@ export function useInventory() {
             'X-Tenant-ID': tenantId,
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ name, quantity, sku, category })
+          body: JSON.stringify(data)
         });
+        if (response.status === 403) throw new Error("Permission denied: Admins only.");
         if (!response.ok) throw new Error("Failed to add item");
         fetchItems();
       } catch (err) {
-        setError("Failed to add product");
+        setError(err instanceof Error ? err.message : "Failed to add product");
       }
     });
   };
 
   const recordMovement = async (itemId: string, amount: number, type: 'STOCK_IN' | 'STOCK_OUT', reason: string) => {
     try {
-      const token = await getToken();
+      const token = await getAuthToken();
       const response = await fetch(`${TRANSACTION_URL}/${itemId}`, {
         method: 'POST',
         headers: {
@@ -170,7 +181,7 @@ export function useInventory() {
 
   const deleteItem = async (id: string) => {
     try {
-      const token = await getToken();
+      const token = await getAuthToken();
       const adminName = user?.fullName || user?.primaryEmailAddress?.emailAddress || "Admin";
       const response = await fetch(`${API_BASE_URL}/${id}`, {
         method: 'DELETE',
@@ -180,17 +191,18 @@ export function useInventory() {
           'X-Performed-By': adminName
         }
       });
+      if (response.status === 403) throw new Error("Permission denied: Admins only.");
       if (!response.ok) throw new Error("Delete failed");
       setItems(prev => prev.filter(item => item.id !== id));
       fetchTrash();
     } catch (err) {
-      setError("Delete failed.");
+      setError(err instanceof Error ? err.message : "Delete failed.");
     }
   };
 
   const restoreItem = async (id: string) => {
     try {
-      const token = await getToken();
+      const token = await getAuthToken();
       const response = await fetch(`${API_BASE_URL}/restore/${id}`, {
         method: 'PUT',
         headers: {
@@ -208,7 +220,7 @@ export function useInventory() {
 
   const permanentlyDelete = async (id: string) => {
     try {
-      const token = await getToken();
+      const token = await getAuthToken();
       const response = await fetch(`${API_BASE_URL}/permanent/${id}`, {
         method: 'DELETE',
         headers: {
@@ -235,6 +247,7 @@ export function useInventory() {
     isLoading,
     error,
     isPending,
+    isAdmin,
     addItem,
     deleteItem,
     restoreItem,

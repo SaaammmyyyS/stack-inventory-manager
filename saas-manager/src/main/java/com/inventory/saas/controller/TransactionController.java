@@ -18,10 +18,6 @@ public class TransactionController {
 
     private final InventoryService inventoryService;
 
-    /**
-     * Helper to convert Database Entity to Response DTO.
-     * Keeps the controller layer isolated from the persistence model.
-     */
     private StockMovementResponseDTO convertToDto(StockTransaction t) {
         return StockMovementResponseDTO.builder()
                 .id(t.getId())

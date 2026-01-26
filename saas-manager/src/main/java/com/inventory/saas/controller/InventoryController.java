@@ -1,13 +1,14 @@
 package com.inventory.saas.controller;
 
 import com.inventory.saas.dto.InventoryItemDTO;
+import com.inventory.saas.dto.InventoryTrashDTO;
 import com.inventory.saas.dto.PaginatedResponseDTO;
 import com.inventory.saas.model.InventoryItem;
 import com.inventory.saas.service.InventoryService;
-import com.inventory.saas.repository.TransactionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -20,7 +21,6 @@ import java.util.stream.Collectors;
 public class InventoryController {
 
     private final InventoryService service;
-    private final TransactionRepository transactionRepository;
 
     private InventoryItemDTO convertToDto(InventoryItem item) {
         return InventoryItemDTO.builder()
@@ -31,10 +31,25 @@ public class InventoryController {
                 .quantity(item.getQuantity())
                 .minThreshold(item.getMinThreshold())
                 .price(item.getPrice())
+                .tenantId(item.getTenantId())
                 .build();
     }
 
+    private InventoryItem convertToEntity(InventoryItemDTO dto) {
+        InventoryItem item = new InventoryItem();
+        item.setId(dto.getId());
+        item.setName(dto.getName());
+        item.setSku(dto.getSku());
+        item.setCategory(dto.getCategory());
+        item.setQuantity(dto.getQuantity());
+        item.setMinThreshold(dto.getMinThreshold());
+        item.setPrice(dto.getPrice());
+        item.setTenantId(dto.getTenantId());
+        return item;
+    }
+
     @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'MEMBER', 'USER')")
     public ResponseEntity<PaginatedResponseDTO<InventoryItemDTO>> getAll(
             @RequestHeader("X-Tenant-ID") String tenantId,
             @RequestParam(defaultValue = "1") int page,
@@ -43,7 +58,6 @@ public class InventoryController {
             @RequestParam(required = false) String category
     ) {
         Page<InventoryItem> itemPage = service.getAllItemsPaginated(tenantId, search, category, page - 1, limit);
-
         List<InventoryItemDTO> dtos = itemPage.getContent().stream()
                 .map(this::convertToDto)
                 .collect(Collectors.toList());
@@ -55,16 +69,28 @@ public class InventoryController {
     }
 
     @PostMapping
-    public InventoryItemDTO create(@RequestBody InventoryItem item) {
-        return convertToDto(service.saveItem(item));
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<InventoryItemDTO> create(
+            @RequestHeader("X-Tenant-ID") String tenantId,
+            @RequestBody InventoryItemDTO dto) {
+        dto.setTenantId(tenantId);
+        InventoryItem item = convertToEntity(dto);
+        return ResponseEntity.ok(convertToDto(service.saveItem(item)));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<InventoryItemDTO> update(@PathVariable UUID id, @RequestBody InventoryItem details) {
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<InventoryItemDTO> update(
+            @RequestHeader("X-Tenant-ID") String tenantId,
+            @PathVariable UUID id,
+            @RequestBody InventoryItemDTO dto) {
+        dto.setTenantId(tenantId);
+        InventoryItem details = convertToEntity(dto);
         return ResponseEntity.ok(convertToDto(service.updateItem(id, details)));
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> delete(
             @PathVariable UUID id,
             @RequestHeader(value = "X-Performed-By", defaultValue = "Admin") String adminName
@@ -74,24 +100,21 @@ public class InventoryController {
     }
 
     @GetMapping("/trash")
-    public List<InventoryItemDTO> getTrash(@RequestHeader("X-Tenant-ID") String tenantId) {
-        return service.getTrashedItems(tenantId).stream()
-                .map(item -> {
-                    InventoryItemDTO dto = convertToDto(item);
-                    String deleter = transactionRepository.findDeleterByItemId(item.getId());
-                    dto.setDeletedBy(deleter != null ? deleter : "System");
-                    return dto;
-                })
-                .collect(Collectors.toList());
+    @PreAuthorize("hasAnyRole('ADMIN', 'MEMBER')")
+    public ResponseEntity<List<InventoryTrashDTO>> getTrashBin(@RequestHeader("X-Tenant-ID") String tenantId) {
+        List<InventoryTrashDTO> trashItems = service.getTrashItems(tenantId);
+        return ResponseEntity.ok(trashItems);
     }
 
     @PutMapping("/restore/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> restore(@PathVariable UUID id) {
         service.restoreItem(id);
         return ResponseEntity.ok().build();
     }
 
     @DeleteMapping("/permanent/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> hardDelete(@PathVariable UUID id) {
         service.hardDeleteItem(id);
         return ResponseEntity.noContent().build();

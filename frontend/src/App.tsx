@@ -1,7 +1,7 @@
 import { SignedIn, SignedOut, SignInButton, useUser } from "@clerk/clerk-react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import DashboardLayout from './components/DashboardLayout';
-import InventoryView from "./components/InventoryView";
+import InventoryView from "./pages/InventoryView";
 import Dashboard from "./pages/Dashboard";
 import { Package, Loader2 } from 'lucide-react';
 

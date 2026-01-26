@@ -1,5 +1,6 @@
 package com.inventory.saas.service;
 
+import com.inventory.saas.dto.InventoryTrashDTO;
 import com.inventory.saas.exception.ResourceNotFoundException;
 import com.inventory.saas.model.InventoryItem;
 import com.inventory.saas.model.StockTransaction;
@@ -33,10 +34,6 @@ public class InventoryService {
         }
 
         return repository.findByTenantIdAndDeletedFalse(tenantId, pageable);
-    }
-
-    public List<InventoryItem> getAllItems() {
-        return repository.findAll();
     }
 
     public InventoryItem saveItem(InventoryItem item) {
@@ -89,12 +86,11 @@ public class InventoryService {
         deleteLog.setPerformedBy(performedBy);
 
         transactionRepository.save(deleteLog);
-
         repository.softDeleteById(id);
     }
 
-    public List<InventoryItem> getTrashedItems(String tenantId) {
-        return repository.findTrashedItems(tenantId);
+    public List<InventoryTrashDTO> getTrashItems(String tenantId) {
+        return repository.findTrashByTenantId(tenantId);
     }
 
     @Transactional

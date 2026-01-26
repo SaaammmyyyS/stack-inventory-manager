@@ -1,5 +1,6 @@
 package com.inventory.saas.repository;
 
+import com.inventory.saas.dto.InventoryTrashDTO;
 import com.inventory.saas.model.InventoryItem;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -31,8 +32,14 @@ public interface InventoryRepository extends JpaRepository<InventoryItem, UUID> 
             nativeQuery = true)
     Page<InventoryItem> findByTenantIdAndDeletedFalse(@Param("tenantId") String tenantId, Pageable pageable);
 
-    @Query(value = "SELECT * FROM inventory WHERE tenant_id = :tenantId AND deleted = 'Y'", nativeQuery = true)
-    List<InventoryItem> findTrashedItems(@Param("tenantId") String tenantId);
+    @Query(value = "SELECT i.id as id, i.name as name, i.sku as sku, i.category as category, " +
+            "(SELECT t.performed_by FROM stock_transactions t " +
+            " WHERE t.inventory_item_id = i.id AND t.type = 'DELETED' " +
+            " ORDER BY t.created_at DESC LIMIT 1) as deletedBy " +
+            "FROM inventory i " +
+            "WHERE i.tenant_id = :tenantId AND i.deleted = 'Y'",
+            nativeQuery = true)
+    List<InventoryTrashDTO> findTrashByTenantId(@Param("tenantId") String tenantId);
 
     @Modifying
     @Transactional

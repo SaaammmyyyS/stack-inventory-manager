@@ -20,5 +20,5 @@ public class InventoryItemDTO {
     private Integer quantity;
     private Integer minThreshold;
     private BigDecimal price;
-    private String deletedBy;
+    private String tenantId;
 }

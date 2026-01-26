@@ -8,6 +8,7 @@ interface ActiveInventoryTableProps {
   totalCount: number;
   currentPage: number;
   pageSize: number;
+  isAdmin: boolean;
   onPageChange: (page: number) => void;
   onAdjust: (id: string, name: string, type: 'STOCK_IN' | 'STOCK_OUT') => void;
   onHistory: (id: string, name: string) => void;
@@ -19,6 +20,7 @@ const ActiveInventoryTable: React.FC<ActiveInventoryTableProps> = ({
   totalCount,
   currentPage,
   pageSize,
+  isAdmin,
   onPageChange,
   onAdjust,
   onHistory,
@@ -56,12 +58,15 @@ const ActiveInventoryTable: React.FC<ActiveInventoryTableProps> = ({
                   </td>
                   <td className="px-8 py-5">
                     <div className="flex items-center justify-center gap-3">
-                      <button
-                        onClick={() => onAdjust(item.id, item.name, 'STOCK_OUT')}
-                        className="p-1.5 text-orange-500 hover:bg-orange-50 rounded-lg border border-orange-100 transition-colors"
-                      >
-                        <Minus size={18} />
-                      </button>
+                      {isAdmin && (
+                        <button
+                          onClick={() => onAdjust(item.id, item.name, 'STOCK_OUT')}
+                          className="p-1.5 text-orange-500 hover:bg-orange-50 rounded-lg border border-orange-100 transition-colors"
+                        >
+                          <Minus size={18} />
+                        </button>
+                      )}
+
                       <div className={`px-4 py-2 rounded-xl text-xs font-black min-w-[110px] text-center border ${
                         item.quantity > 5
                           ? 'bg-green-50 text-green-600 border-green-100'
@@ -69,12 +74,15 @@ const ActiveInventoryTable: React.FC<ActiveInventoryTableProps> = ({
                       }`}>
                         {item.quantity} UNITS
                       </div>
-                      <button
-                        onClick={() => onAdjust(item.id, item.name, 'STOCK_IN')}
-                        className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg border border-blue-100 transition-colors"
-                      >
-                        <Plus size={18} />
-                      </button>
+
+                      {isAdmin && (
+                        <button
+                          onClick={() => onAdjust(item.id, item.name, 'STOCK_IN')}
+                          className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg border border-blue-100 transition-colors"
+                        >
+                          <Plus size={18} />
+                        </button>
+                      )}
                     </div>
                   </td>
                   <td className="px-8 py-5 text-right">
@@ -86,13 +94,16 @@ const ActiveInventoryTable: React.FC<ActiveInventoryTableProps> = ({
                       >
                         <History size={18} />
                       </button>
-                      <button
-                        onClick={() => onDelete(item.id, item.name)}
-                        className="hover:text-red-500 p-2 transition-all"
-                        title="Soft Delete"
-                      >
-                        <Trash2 size={18} />
-                      </button>
+
+                      {isAdmin && (
+                        <button
+                          onClick={() => onDelete(item.id, item.name)}
+                          className="hover:text-red-500 p-2 transition-all"
+                          title="Soft Delete"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

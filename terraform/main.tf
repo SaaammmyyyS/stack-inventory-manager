@@ -1,52 +1,76 @@
-# Variables (Values will be read from terraform.tfvars)
-variable "supabase_password" { type = string, sensitive = true }
-variable "db_url"            { type = string }
-variable "db_username"       { type = string }
-variable "clerk_issuer_uri"  { type = string }
+# --- Variable Declarations ---
+# Using multi-line syntax to avoid "Invalid single-argument block" errors
+variable "supabase_password" {
+  type      = string
+  sensitive = true
+}
 
-provider "aws" {
-  region = "ap-southeast-1"
+variable "db_url" {
+  type = string
+}
+
+variable "db_username" {
+  type = string
+}
+
+variable "clerk_issuer_uri" {
+  type = string
 }
 
 # 1. ECR Repositories
 resource "aws_ecr_repository" "backend" {
-  name = "saas-backend"
-  force_delete = true
+  name                 = "saas-backend"
+  force_delete         = true
+  image_scanning_configuration {
+    scan_on_push = true
+  }
 }
 
 resource "aws_ecr_repository" "frontend" {
-  name = "saas-frontend"
-  force_delete = true
+  name                 = "saas-frontend"
+  force_delete         = true
+  image_scanning_configuration {
+    scan_on_push = true
+  }
 }
 
 # 2. IAM Role for App Runner
-resource "aws_iam_role" "apprunner_role" {
-  name = "apprunner-ecr-role"
+resource "aws_iam_role" "apprunner_service_role" {
+  name = "apprunner-ecr-access-role"
+
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [{
-      Action = "sts:AssumeRole"
-      Effect = "Allow"
-      Principal = { Service = "build.apprunner.amazonaws.com" }
-    }]
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "build.apprunner.amazonaws.com"
+        }
+      }
+    ]
   })
 }
 
-resource "aws_iam_role_policy_attachment" "apprunner_policy" {
-  role       = aws_iam_role.apprunner_role.name
+resource "aws_iam_role_policy_attachment" "apprunner_ecr_policy" {
+  role       = aws_iam_role.apprunner_service_role.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSAppRunnerServicePolicyForECRAccess"
 }
 
-# 3. Backend Service
+# 3. Backend Service (saas-manager)
 resource "aws_apprunner_service" "backend" {
   service_name = "inventory-backend"
+
   source_configuration {
-    authentication_configuration { access_role_arn = aws_iam_role.apprunner_role.arn }
+    authentication_configuration {
+      access_role_arn = aws_iam_role.apprunner_service_role.arn
+    }
     image_repository {
       image_identifier      = "${aws_ecr_repository.backend.repository_url}:latest"
       image_repository_type = "ECR"
       image_configuration {
         port = "8080"
+        # Secrets are injected securely via variables defined in terraform.tfvars
         runtime_environment_variables = {
           DB_URL           = var.db_url
           DB_USERNAME      = var.db_username
@@ -55,18 +79,34 @@ resource "aws_apprunner_service" "backend" {
         }
       }
     }
+    auto_deployments_enabled = true
   }
 }
 
-# 4. Frontend Service
+# 4. Frontend Service (React)
 resource "aws_apprunner_service" "frontend" {
   service_name = "inventory-frontend"
+
   source_configuration {
-    authentication_configuration { access_role_arn = aws_iam_role.apprunner_role.arn }
+    authentication_configuration {
+      access_role_arn = aws_iam_role.apprunner_service_role.arn
+    }
     image_repository {
       image_identifier      = "${aws_ecr_repository.frontend.repository_url}:latest"
       image_repository_type = "ECR"
-      image_configuration { port = "80" }
+      image_configuration {
+        port = "80"
+      }
     }
+    auto_deployments_enabled = true
   }
+}
+
+# --- Outputs ---
+output "live_backend_url" {
+  value = "https://${aws_apprunner_service.backend.service_url}"
+}
+
+output "live_website_url" {
+  value = "https://${aws_apprunner_service.frontend.service_url}"
 }

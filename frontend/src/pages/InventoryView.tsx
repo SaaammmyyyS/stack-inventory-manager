@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useInventory, type StockTransaction } from '@/hooks/useInventory';
+import { useState, useEffect } from 'react';
+import { useInventory } from '@/hooks/useInventory';
 import { Plus, Trash2, Loader2, AlertCircle, Package, Search } from 'lucide-react';
 
 import { Input } from "@/components/ui/input";
@@ -12,12 +12,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-import ActiveInventoryTable from './inventory/ActiveInventoryTable';
-import TrashBinTable from './inventory/TrashBinTable';
-import AddProductModal from './inventory/AddProductModal';
-import StockAdjustmentModal from './inventory/StockAdjustmentModal';
-import ActivityLogDrawer from './inventory/ActivityLogDrawer';
-import DeleteConfirmModal from './inventory/DeleteConfirmModal';
+import ActiveInventoryTable from '../components/inventory/ActiveInventoryTable';
+import TrashBinTable from '../components/inventory/TrashBinTable';
+import AddProductModal from '../components/inventory/AddProductModal';
+import StockAdjustmentModal from '../components/inventory/StockAdjustmentModal';
+import ActivityLogDrawer from '../components/inventory/ActivityLogDrawer';
+import DeleteConfirmModal from '../components/inventory/DeleteConfirmModal';
+import { StockTransaction } from '@/types/inventory';
 
 export default function InventoryView() {
   const {
@@ -26,6 +27,7 @@ export default function InventoryView() {
     isLoading,
     error,
     isPending,
+    isAdmin,
     addItem,
     deleteItem,
     recordMovement,
@@ -65,18 +67,13 @@ export default function InventoryView() {
     }
   }, [search, category, page, currentView, fetchItems]);
 
-  const handleSearchChange = (val: string) => {
-    setSearch(val);
-    setPage(1);
-  };
-
   const handleAddProduct = async (formData: FormData) => {
-    await addItem(
-      formData.get("name") as string,
-      parseInt(formData.get("quantity") as string),
-      formData.get("sku") as string,
-      formData.get("category") as string
-    );
+    await addItem({
+        name: formData.get("name") as string,
+        quantity: parseInt(formData.get("quantity") as string),
+        sku: formData.get("sku") as string,
+        category: formData.get("category") as string
+    });
     setIsAddModalOpen(false);
   };
 
@@ -95,6 +92,7 @@ export default function InventoryView() {
 
   return (
     <div className="relative animate-in fade-in duration-500 pb-10 max-w-7xl mx-auto px-4">
+
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4 pt-8">
         <div>
           <h1 className="text-3xl font-black text-slate-900 tracking-tight">
@@ -117,7 +115,7 @@ export default function InventoryView() {
             {currentView === 'active' ? 'View Trash' : 'Back to Inventory'}
           </Button>
 
-          {currentView === 'active' && (
+          {currentView === 'active' && isAdmin && (
             <Button
               onClick={() => setIsAddModalOpen(true)}
               className="bg-blue-600 hover:bg-blue-700 text-white font-bold h-12 rounded-xl shadow-lg shadow-blue-200"
@@ -135,7 +133,7 @@ export default function InventoryView() {
             <Input
               placeholder="Search by name or SKU..."
               value={search}
-              onChange={(e) => handleSearchChange(e.target.value)}
+              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
               className="pl-10 h-12 rounded-xl border-slate-200 focus:ring-blue-500"
             />
           </div>
@@ -185,10 +183,12 @@ export default function InventoryView() {
               onAdjust={(id, name, type) => setAdjustItem({id, name, type})}
               onHistory={handleOpenHistory}
               onDelete={(id, name) => setItemToDelete({id, name})}
+              isAdmin={isAdmin}
             />
           ) : (
             <TrashBinTable
               items={trashedItems}
+              isAdmin={isAdmin}
               onFetch={fetchTrash}
               onRestore={restoreItem}
               onHardDelete={permanentlyDelete}

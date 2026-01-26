@@ -5,28 +5,31 @@ import { Button } from "@/components/ui/button";
 
 interface TrashBinTableProps {
   items: InventoryItem[];
+  isAdmin: boolean;
   onFetch: () => void;
   onRestore: (id: string) => void;
   onHardDelete: (id: string) => void;
 }
 
 const TrashBinTable: React.FC<TrashBinTableProps> = ({
-  items,
+  items = [],
+  isAdmin,
   onFetch,
   onRestore,
   onHardDelete
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<InventoryItem | null>(null);
-
   const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 5;
-  const totalPages = Math.ceil(items.length / pageSize);
-  const paginatedItems = items.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   useEffect(() => {
     onFetch();
-  }, [onFetch]);
+  }, []);
+
+  const pageSize = 5;
+  const totalItems = items?.length || 0;
+  const totalPages = Math.ceil(totalItems / pageSize);
+  const paginatedItems = (items || []).slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const openDeleteModal = (item: InventoryItem) => {
     setItemToDelete(item);
@@ -38,14 +41,20 @@ const TrashBinTable: React.FC<TrashBinTableProps> = ({
     setItemToDelete(null);
   };
 
-  const confirmDelete = () => {
+  const handleRestore = async (id: string) => {
+    await onRestore(id);
+    onFetch();
+  };
+
+  const confirmDelete = async () => {
     if (itemToDelete) {
-      onHardDelete(itemToDelete.id);
+      await onHardDelete(itemToDelete.id);
       closeDeleteModal();
+      onFetch();
     }
   };
 
-  if (items.length === 0) {
+  if (totalItems === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-24 bg-slate-50/30 rounded-[2rem] border-2 border-dashed border-slate-100 mx-4 my-4">
         <div className="w-16 h-16 bg-white rounded-full shadow-sm flex items-center justify-center mb-4">
@@ -95,24 +104,28 @@ const TrashBinTable: React.FC<TrashBinTableProps> = ({
                   </div>
                 </td>
                 <td className="px-8 py-5 text-right">
-                  <div className="flex justify-end items-center gap-3">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => onRestore(item.id)}
-                      className="bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-xl font-bold border-none h-9"
-                    >
-                      <RotateCcw className="mr-2 h-3.5 w-3.5" /> Restore
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => openDeleteModal(item)}
-                      className="border-red-100 text-red-400 hover:bg-red-50 hover:text-red-600 rounded-xl font-bold h-9"
-                    >
-                      <Trash2 className="mr-2 h-3.5 w-3.5" /> Purge
-                    </Button>
-                  </div>
+                  {isAdmin ? (
+                    <div className="flex justify-end items-center gap-3">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => handleRestore(item.id)}
+                        className="bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-xl font-bold border-none h-9"
+                      >
+                        <RotateCcw className="mr-2 h-3.5 w-3.5" /> Restore
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openDeleteModal(item)}
+                        className="border-red-100 text-red-400 hover:bg-red-50 hover:text-red-600 rounded-xl font-bold h-9"
+                      >
+                        <Trash2 className="mr-2 h-3.5 w-3.5" /> Purge
+                      </Button>
+                    </div>
+                  ) : (
+                    <span className="text-xs text-slate-400 italic">View Only</span>
+                  )}
                 </td>
               </tr>
             ))}
@@ -130,7 +143,7 @@ const TrashBinTable: React.FC<TrashBinTableProps> = ({
 
         <div className="px-8 py-4 flex items-center justify-between bg-white rounded-b-[2rem]">
           <div className="text-sm text-slate-500 font-medium">
-            Total Trashed: <span className="text-slate-900 font-bold">{items.length}</span>
+            Total Trashed: <span className="text-slate-900 font-bold">{totalItems}</span>
           </div>
 
           <div className="flex items-center gap-4">
