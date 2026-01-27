@@ -2,7 +2,7 @@
 
 An enterprise-grade, **Multi-tenant SaaS** platform for real-time inventory tracking. Architected with a high-performance **Spring Boot 3.4** core, a type-safe **React 19** frontend, and a **fully-automated AWS ecosystem** provisioned through **Terraform**.
 
-> **Key Pillar:** Secure data isolation using Hibernate `@TenantId`, granular RBAC, and **Immutable Infrastructure** via Terraform to ensure cost-optimized, reproducible cloud deployments.
+> **Key Pillar:** Secure data isolation using Hibernate @TenantId, granular RBAC, and Complete Audit Traceability—ensuring every stock movement is logged, even for items currently in the Recycle Bin.
 
 ---
 
@@ -29,8 +29,10 @@ graph TD
     subgraph Data_Layer [Persistence: Supabase/PostgreSQL]
         Service -- "Tenant Context" --> Hibernate[Hibernate 7 Engine]
         Hibernate -- "@TenantId Filter" --> DB[(Postgres DB)]
-        DB -- "deleted='N'" --> Active[Active Inventory]
-        DB -- "deleted='Y'" --> Trash[Recycle Bin]
+        DB --> Entities[InventoryItem 1:N StockTransaction]
+        Entities -- "deleted='N'" --> Active[Active Inventory]
+        Entities -- "deleted='Y'" --> Trash[Recycle Bin]
+        Entities -- "Audit Trail" --> History[Stock History/Reports]
     end
 
     style DB fill:#f9f,stroke:#333,stroke-width:2px
@@ -65,7 +67,8 @@ graph TD
 - **Multi-tenant Isolation:** Automatic data filtering via Hibernate `@TenantId` and the `X-Tenant-ID` header, ensuring users never see data from other organizations.
 - **Automated Testing Suite:** 100% test coverage for multi-tenant isolation using H2 in-memory databases, catching tenant leaks during the build phase.
 - **Granular RBAC:** Role-Based Access Control protecting endpoints for `ADMIN`, `MEMBER`, and `USER` roles.
-- **Audit-Ready Soft Delete:** Items marked for deletion move to a "Recycle Bin" instead of being erased, maintaining a `deletedBy` audit trail.
+- **Stock Movement & Audit Log:** Comprehensive tracking of every `STOCK_IN`, `STOCK_OUT`, and lifecycle event (`DELETED`/`RESTORED`). Includes a defensive history fetcher that maintains audit integrity even after items are soft-deleted.
+- **Automated PDF Reporting:** Enterprise-level report generation using `OpenPDF`, featuring real-time inventory valuations, low-stock alerts, and recent activity summaries.
 - **Strict DTO Pattern:** Total isolation between database entities and API responses for maximum security and flexibility.
 
 ## 🛠️ Local Development & Testing
