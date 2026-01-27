@@ -1,31 +1,19 @@
 import React from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { ArrowUpCircle, ArrowDownCircle, ClipboardList } from "lucide-react";
+import { ArrowUpCircle, ArrowDownCircle, AlertCircle } from "lucide-react";
 
 interface Props {
-  item: { id: string; name: string; type: 'STOCK_IN' | 'STOCK_OUT' } | null;
+  item: { id: string; name: string; quantity: number; type: 'STOCK_IN' | 'STOCK_OUT' } | null;
+  error?: string | null;
   onClose: () => void;
   onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
 }
 
-export default function StockAdjustmentModal({ item, onClose, onSubmit }: Props) {
+export default function StockAdjustmentModal({ item, error, onClose, onSubmit }: Props) {
   if (!item) return null;
 
   const isStockIn = item.type === 'STOCK_IN';
@@ -44,8 +32,16 @@ export default function StockAdjustmentModal({ item, onClose, onSubmit }: Props)
           </DialogTitle>
           <DialogDescription className="text-slate-500 font-medium">
             Updating inventory for <span className="text-slate-900 font-bold">{item.name}</span>
+            <div className="mt-1 text-xs font-bold text-slate-400">CURRENT STOCK: {item.quantity}</div>
           </DialogDescription>
         </DialogHeader>
+
+        {error && (
+          <div className="mt-4 p-3 bg-red-50 border border-red-100 rounded-xl flex items-center gap-2 text-red-600 animate-in fade-in">
+            <AlertCircle size={16} />
+            <p className="text-xs font-bold">{error}</p>
+          </div>
+        )}
 
         <form onSubmit={onSubmit} className="space-y-6 pt-4">
           <div className="space-y-2">
@@ -58,6 +54,7 @@ export default function StockAdjustmentModal({ item, onClose, onSubmit }: Props)
               type="number"
               required
               min="1"
+              max={!isStockIn ? item.quantity : undefined}
               placeholder="0"
               className="h-14 rounded-2xl bg-slate-50 border-none focus-visible:ring-2 focus-visible:ring-blue-500 font-black text-2xl px-6"
             />
@@ -67,7 +64,7 @@ export default function StockAdjustmentModal({ item, onClose, onSubmit }: Props)
             <Label htmlFor="reason" className="text-xs font-bold uppercase tracking-wider text-slate-400 ml-1">
               Reason for Adjustment
             </Label>
-            <Select name="reason" required defaultValue="Regular Restock">
+            <Select name="reason" required defaultValue={isStockIn ? "Regular Restock" : "Customer Sale"}>
               <SelectTrigger className="h-12 rounded-2xl bg-slate-50 border-none focus:ring-2 focus:ring-blue-500 font-medium">
                 <SelectValue placeholder="Select a reason" />
               </SelectTrigger>
@@ -81,20 +78,13 @@ export default function StockAdjustmentModal({ item, onClose, onSubmit }: Props)
           </div>
 
           <DialogFooter className="flex gap-3 pt-4">
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={onClose}
-              className="flex-1 h-12 font-bold text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-xl"
-            >
+            <Button type="button" variant="ghost" onClick={onClose} className="flex-1 h-12 font-bold text-slate-400 rounded-xl">
               Cancel
             </Button>
             <Button
               type="submit"
               className={`flex-1 h-12 font-bold rounded-xl shadow-lg transition-all active:scale-95 ${
-                isStockIn
-                ? 'bg-blue-600 hover:bg-blue-700 shadow-blue-100'
-                : 'bg-orange-600 hover:bg-orange-700 shadow-orange-100'
+                isStockIn ? 'bg-blue-600 hover:bg-blue-700 shadow-blue-100' : 'bg-orange-600 hover:bg-orange-700 shadow-orange-100'
               }`}
             >
               Confirm

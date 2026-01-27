@@ -28,15 +28,19 @@ public class InventoryService {
 
     public Page<InventoryItem> getAllItemsPaginated(String tenantId, String search, String category, int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("name").ascending());
-
         if ((search != null && !search.isEmpty()) || (category != null && !category.isEmpty())) {
             return repository.findByFilters(tenantId, search, category, pageable);
         }
-
         return repository.findByTenantIdAndDeletedFalse(tenantId, pageable);
     }
 
     public InventoryItem saveItem(InventoryItem item) {
+        if (item.getSku() != null && !item.getSku().trim().isEmpty()) {
+            boolean exists = repository.existsBySkuAndTenantId(item.getSku(), item.getTenantId());
+            if (exists) {
+                throw new RuntimeException("Product with SKU '" + item.getSku() + "' already exists.");
+            }
+        }
         return repository.save(item);
     }
 
@@ -55,9 +59,14 @@ public class InventoryService {
     @Transactional
     public StockTransaction recordMovement(UUID id, Integer amount, String type, String reason, String performedBy) {
         InventoryItem item = repository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Inventory item not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Inventory item not found with id: " + id));
 
         int adjustment = type.equalsIgnoreCase("STOCK_OUT") ? -Math.abs(amount) : Math.abs(amount);
+
+        if (type.equalsIgnoreCase("STOCK_OUT") && (item.getQuantity() + adjustment) < 0) {
+            throw new RuntimeException("Insufficient stock. Current balance: " + item.getQuantity());
+        }
+
         item.setQuantity(item.getQuantity() + adjustment);
         repository.save(item);
 
@@ -107,5 +116,9 @@ public class InventoryService {
 
     public List<StockTransaction> getItemHistory(UUID id) {
         return transactionRepository.findByInventoryItemId(id);
+    }
+
+    public List<StockTransaction> getRecentTransactions(String tenantId) {
+        return transactionRepository.findTop10ByTenantIdOrderByCreatedAtDesc(tenantId);
     }
 }

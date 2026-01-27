@@ -11,7 +11,13 @@ import java.util.UUID;
 
 public interface TransactionRepository extends JpaRepository<StockTransaction, UUID> {
 
-    List<StockTransaction> findByInventoryItemId(UUID itemId);
+    List<StockTransaction> findByInventoryItemId(UUID inventoryItemId);
+
+    @Query("SELECT t FROM StockTransaction t LEFT JOIN FETCH t.inventoryItem " +
+            "WHERE t.tenantId = :tenantId ORDER BY t.createdAt DESC")
+    List<StockTransaction> findRecentByTenant(@Param("tenantId") String tenantId);
+
+    List<StockTransaction> findTop10ByTenantIdOrderByCreatedAtDesc(String tenantId);
 
     @Modifying
     @Transactional

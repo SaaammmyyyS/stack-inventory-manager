@@ -5,6 +5,7 @@ import com.inventory.saas.dto.StockMovementResponseDTO;
 import com.inventory.saas.model.StockTransaction;
 import com.inventory.saas.service.InventoryService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -26,10 +27,12 @@ public class TransactionController {
                 .reason(t.getReason())
                 .performedBy(t.getPerformedBy())
                 .createdAt(t.getCreatedAt())
+                .itemName(t.getInventoryItem() != null ? t.getInventoryItem().getName() : "Unknown Item")
                 .build();
     }
 
     @PostMapping("/{itemId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MEMBER')")
     public StockMovementResponseDTO addTransaction(
             @PathVariable UUID itemId,
             @RequestBody StockMovementRequestDTO request
@@ -45,8 +48,19 @@ public class TransactionController {
     }
 
     @GetMapping("/{itemId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MEMBER', 'USER')")
     public List<StockMovementResponseDTO> getHistory(@PathVariable UUID itemId) {
         return inventoryService.getItemHistory(itemId).stream()
+                .map(this::convertToDto)
+                .collect(Collectors.toList());
+    }
+
+    @GetMapping("/recent")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MEMBER', 'USER')")
+    public List<StockMovementResponseDTO> getRecentActivity(
+            @RequestHeader("X-Tenant-ID") String tenantId
+    ) {
+        return inventoryService.getRecentTransactions(tenantId).stream()
                 .map(this::convertToDto)
                 .collect(Collectors.toList());
     }

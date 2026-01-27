@@ -33,17 +33,6 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-
-                        .requestMatchers(HttpMethod.GET, "/api/inventory/trash").hasAnyRole("ADMIN", "MEMBER")
-                        .requestMatchers(HttpMethod.PUT, "/api/inventory/restore/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.DELETE, "/api/inventory/permanent/**").hasRole("ADMIN")
-
-                        .requestMatchers(HttpMethod.GET, "/api/inventory/**").hasAnyRole("ADMIN", "MEMBER", "USER")
-                        .requestMatchers(HttpMethod.POST, "/api/inventory/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.PUT, "/api/inventory/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.DELETE, "/api/inventory/**").hasRole("ADMIN")
-
-                        .requestMatchers("/api/transactions/**").authenticated()
                         .anyRequest().authenticated()
                 )
                 .oauth2ResourceServer(oauth -> oauth.jwt(jwt ->
@@ -92,8 +81,6 @@ public class SecurityConfig {
             } else {
                 authorities.add(new SimpleGrantedAuthority("ROLE_USER"));
             }
-
-            System.out.println("Final Authorities for user: " + authorities);
             return authorities;
         });
         return converter;
@@ -102,10 +89,15 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of("http://localhost:5173", "https://dmtc2sumyu.ap-southeast-1.awsapprunner.com"));
+        config.setAllowedOrigins(List.of(
+                "http://localhost:5173",
+                "https://dmtc2sumyu.ap-southeast-1.awsapprunner.com"
+        ));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Tenant-ID", "X-Performed-By", "Cache-Control"));
+        config.setExposedHeaders(List.of("Content-Disposition"));
         config.setAllowCredentials(true);
+
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
         return source;

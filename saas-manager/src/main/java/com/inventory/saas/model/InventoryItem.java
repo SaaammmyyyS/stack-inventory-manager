@@ -34,6 +34,7 @@ public class InventoryItem {
     @Column(nullable = false)
     private Integer quantity = 0;
 
+    @Column(name = "min_threshold")
     private Integer minThreshold;
 
     private BigDecimal price;

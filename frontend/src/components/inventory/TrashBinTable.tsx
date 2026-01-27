@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { RotateCcw, Trash2, User, Inbox, AlertTriangle, X, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { InventoryItem } from '../../hooks/useInventory';
 import { Button } from "@/components/ui/button";
@@ -21,10 +21,6 @@ const TrashBinTable: React.FC<TrashBinTableProps> = ({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<InventoryItem | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-
-  useEffect(() => {
-    onFetch();
-  }, []);
 
   const pageSize = 5;
   const totalItems = items?.length || 0;
