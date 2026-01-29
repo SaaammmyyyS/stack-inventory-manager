@@ -1,6 +1,7 @@
 package com.inventory.saas.service;
 
 import com.inventory.saas.dto.InventoryTrashDTO;
+import com.inventory.saas.dto.StockMovementResponseDTO;
 import com.inventory.saas.exception.ResourceNotFoundException;
 import com.inventory.saas.model.InventoryItem;
 import com.inventory.saas.model.StockTransaction;
@@ -13,7 +14,9 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class InventoryService {
@@ -118,7 +121,18 @@ public class InventoryService {
         return transactionRepository.findByInventoryItemId(id);
     }
 
-    public List<StockTransaction> getRecentTransactions(String tenantId) {
-        return transactionRepository.findTop10ByTenantIdOrderByCreatedAtDesc(tenantId);
+    public List<StockMovementResponseDTO> getRecentTransactionsRaw(String tenantId) {
+        List<Map<String, Object>> rawData = transactionRepository.findRecentTransactionsRaw(tenantId);
+
+        return rawData.stream().map(row -> StockMovementResponseDTO.builder()
+                .id((UUID) row.get("id"))
+                .quantityChange((Integer) row.get("quantityChange"))
+                .type((String) row.get("type"))
+                .reason((String) row.get("reason"))
+                .performedBy((String) row.get("performedBy"))
+                .createdAt(((java.sql.Timestamp) row.get("createdAt")).toLocalDateTime())
+                .itemName((String) row.get("itemName"))
+                .build()
+        ).collect(Collectors.toList());
     }
 }

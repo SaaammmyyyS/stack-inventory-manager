@@ -45,8 +45,9 @@ export function useInventory() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [currentPlan, setCurrentPlan] = useState<string>('free');
 
-  const tenantId = organization?.id || "personal";
+  const tenantId = useMemo(() => organization?.id || user?.id || "personal", [organization, user]);
 
   const isAdmin = useMemo(() => {
     const isOrgAdmin = membership?.role === "org:admin";
@@ -58,9 +59,24 @@ export function useInventory() {
     getToken({ template: "spring-boot-backend" }),
   [getToken]);
 
+  const syncPlanFromToken = useCallback(async () => {
+    const token = await getAuthToken();
+    if (token) {
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        const plan = payload.org_plan || 'free';
+        setCurrentPlan(plan.toLowerCase());
+      } catch (e) {
+        setCurrentPlan('free');
+      }
+    }
+  }, [getAuthToken]);
+
   const fetchItems = useCallback(async (options: FetchOptions = {}) => {
     if (!isOrgLoaded) return;
     setIsLoading(true);
+    await syncPlanFromToken();
+
     const { page = 1, limit = 10, search = "", category = "" } = options;
 
     try {
@@ -88,62 +104,7 @@ export function useInventory() {
     } finally {
       setIsLoading(false);
     }
-  }, [getAuthToken, tenantId, isOrgLoaded]);
-
-  const fetchHistory = useCallback(async (itemId: string): Promise<StockTransaction[]> => {
-    if (!itemId) return [];
-    try {
-      const token = await getAuthToken();
-      const response = await fetch(`${TRANSACTION_URL}/${itemId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'X-Tenant-ID': tenantId
-        }
-      });
-      if (!response.ok) throw new Error("History fetch failed");
-      return await response.json();
-    } catch (err) {
-      console.error("History Error:", err);
-      return [];
-    }
-  }, [getAuthToken, tenantId]);
-
-  const recordMovement = useCallback(async (
-    itemId: string,
-    amount: number,
-    type: 'STOCK_IN' | 'STOCK_OUT',
-    reason: string
-  ): Promise<boolean> => {
-    setError(null);
-    try {
-      const token = await getAuthToken();
-      const response = await fetch(`${TRANSACTION_URL}/${itemId}`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'X-Tenant-ID': tenantId,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          amount,
-          type,
-          reason,
-          performedBy: user?.fullName || user?.primaryEmailAddress?.emailAddress || "System"
-        })
-      });
-
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.message || "Adjustment failed");
-      }
-
-      await fetchItems();
-      return true;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Adjustment error");
-      return false;
-    }
-  }, [getAuthToken, tenantId, user, fetchItems]);
+  }, [getAuthToken, tenantId, isOrgLoaded, syncPlanFromToken]);
 
   const fetchTrash = useCallback(async () => {
     if (!isOrgLoaded) return;
@@ -157,28 +118,11 @@ export function useInventory() {
         }
       });
       const data = await response.json();
-      setTrashedItems(data || []);
+      setTrashedItems(Array.isArray(data) ? data : []);
     } catch (err) {
       setError("Failed to load recycle bin");
     } finally {
       setIsLoading(false);
-    }
-  }, [getAuthToken, tenantId, isOrgLoaded]);
-
-  const fetchRecentActivity = useCallback(async () => {
-    if (!isOrgLoaded) return;
-    try {
-      const token = await getAuthToken();
-      const response = await fetch(`${TRANSACTION_URL}/recent`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'X-Tenant-ID': tenantId
-        }
-      });
-      const data = await response.json();
-      setRecentActivity(data || []);
-    } catch (err) {
-      setError("Failed to load activity feed");
     }
   }, [getAuthToken, tenantId, isOrgLoaded]);
 
@@ -195,7 +139,7 @@ export function useInventory() {
               'X-Tenant-ID': tenantId,
               'Content-Type': 'application/json'
             },
-            body: JSON.stringify(data)
+            body: JSON.stringify({ ...data, tenantId })
           });
           if (!response.ok) {
              const ed = await response.json();
@@ -263,9 +207,80 @@ export function useInventory() {
     }
   }, [getAuthToken, tenantId]);
 
+  const recordMovement = useCallback(async (
+    itemId: string,
+    amount: number,
+    type: 'STOCK_IN' | 'STOCK_OUT',
+    reason: string
+  ): Promise<boolean> => {
+    setError(null);
+    try {
+      const token = await getAuthToken();
+      const response = await fetch(`${TRANSACTION_URL}/${itemId}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'X-Tenant-ID': tenantId,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          amount,
+          type,
+          reason,
+          performedBy: user?.fullName || user?.primaryEmailAddress?.emailAddress || "System"
+        })
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.message || "Adjustment failed");
+      }
+
+      await fetchItems();
+      return true;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Adjustment error");
+      return false;
+    }
+  }, [getAuthToken, tenantId, user, fetchItems]);
+
+  const fetchHistory = useCallback(async (itemId: string): Promise<StockTransaction[]> => {
+    if (!itemId) return [];
+    try {
+      const token = await getAuthToken();
+      const response = await fetch(`${TRANSACTION_URL}/${itemId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'X-Tenant-ID': tenantId
+        }
+      });
+      if (!response.ok) throw new Error("History fetch failed");
+      return await response.json();
+    } catch (err) {
+      return [];
+    }
+  }, [getAuthToken, tenantId]);
+
+  const fetchRecentActivity = useCallback(async () => {
+    if (!isOrgLoaded) return;
+    try {
+      const token = await getAuthToken();
+      const response = await fetch(`${TRANSACTION_URL}/recent`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'X-Tenant-ID': tenantId
+        }
+      });
+      const data = await response.json();
+      setRecentActivity(Array.isArray(data) ? data : []);
+    } catch (err) {
+      setError("Failed to load activity feed");
+    }
+  }, [getAuthToken, tenantId, isOrgLoaded]);
+
   return {
     items, totalCount, trashedItems, recentActivity,
-    isLoading, error, setError, isPending, isAdmin,
+    isLoading, error, setError, isPending, isAdmin, currentPlan,
     getAuthToken, addItem, deleteItem, restoreItem,
     permanentlyDelete, recordMovement, fetchTrash,
     fetchItems, fetchHistory, fetchRecentActivity

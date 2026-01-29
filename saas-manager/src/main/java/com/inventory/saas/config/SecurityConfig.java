@@ -19,7 +19,6 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 
 @Configuration
 @EnableWebSecurity
@@ -47,34 +46,14 @@ public class SecurityConfig {
         JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
         converter.setJwtGrantedAuthoritiesConverter(jwt -> {
             Collection<GrantedAuthority> authorities = new ArrayList<>();
-            String rawRole = null;
+            String rawRole = jwt.getClaimAsString("org_role");
 
-            Map<String, Object> orgs = jwt.getClaim("o");
-            if (orgs != null && !orgs.isEmpty()) {
-                for (Object orgData : orgs.values()) {
-                    if (orgData instanceof Map) {
-                        Map<?, ?> details = (Map<?, ?>) orgData;
-                        Object roleObj = details.get("role");
-                        if (roleObj != null) {
-                            rawRole = roleObj.toString();
-                            break;
-                        }
-                    }
-                }
-            }
+            if (rawRole != null && !rawRole.isEmpty()) {
+                String cleanRole = rawRole.contains(":")
+                        ? rawRole.split(":")[1].toUpperCase()
+                        : rawRole.toUpperCase();
 
-            if (rawRole == null || rawRole.contains("{{")) {
-                Map<String, Object> metadata = jwt.getClaim("public_metadata");
-                if (metadata == null) metadata = jwt.getClaim("metadata");
-                if (metadata != null && metadata.get("role") != null) {
-                    rawRole = metadata.get("role").toString();
-                }
-            }
-
-            if (rawRole != null && !rawRole.contains("{{")) {
-                String cleanRole = rawRole.contains(":") ? rawRole.split(":")[1].toUpperCase() : rawRole.toUpperCase();
                 authorities.add(new SimpleGrantedAuthority("ROLE_" + cleanRole));
-
                 if (cleanRole.equals("ADMIN")) {
                     authorities.add(new SimpleGrantedAuthority("ROLE_MEMBER"));
                 }
@@ -95,7 +74,7 @@ public class SecurityConfig {
         ));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Tenant-ID", "X-Performed-By", "Cache-Control"));
-        config.setExposedHeaders(List.of("Content-Disposition"));
+        config.setExposedHeaders(List.of("Content-Disposition", "X-Performed-By"));
         config.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

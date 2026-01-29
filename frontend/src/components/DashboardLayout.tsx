@@ -8,7 +8,8 @@ import {
   Menu,
   X,
   ChevronRight,
-  Sparkles
+  Sparkles,
+  CreditCard
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 
@@ -21,6 +22,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Inventory', href: '/inventory', icon: Package },
     { name: 'AI Tools', href: '/ai-tools', icon: MessageSquare, isNew: true },
+    { name: 'Billing', href: '/billing', icon: CreditCard },
     { name: 'Settings', href: '/settings', icon: Settings },
   ];
 

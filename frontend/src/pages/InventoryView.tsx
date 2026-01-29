@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Plus, Trash2, Loader2, AlertCircle, Package, Search } from 'lucide-react';
+import { Plus, Trash2, Loader2, AlertCircle, Package, Search, CreditCard, ArrowUpCircle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { useOrganization, useAuth } from "@clerk/clerk-react";
 import {
   Select,
   SelectContent,
@@ -20,10 +22,20 @@ import { useInventoryHandlers } from '@/hooks/useInventoryHandlers';
 
 export default function InventoryView() {
   const h = useInventoryHandlers();
+  const navigate = useNavigate();
+  const { organization } = useOrganization();
+  const { has, isLoaded: isAuthLoaded } = useAuth();
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
   const [page, setPage] = useState(1);
   const limit = 10;
+
+  const isPro = has?.({ plan: 'test' }) || false;
+  const isFreePlan = !isPro;
+  const isLimitReached = isFreePlan && h.totalCount >= 50;
+
+  const isEffectivelyLoading = h.isLoading &&
+    (h.currentView === 'active' ? h.items.length === 0 : h.trashedItems.length === 0);
 
   useEffect(() => {
     if (h.currentView === 'active') {
@@ -36,16 +48,46 @@ export default function InventoryView() {
         });
       }, 300);
       return () => clearTimeout(timer);
-    }
-
-    if (h.currentView === 'trash') {
+    } else {
       h.fetchTrash();
     }
+  }, [search, category, page, h.currentView]);
 
-  }, [search, category, page, h.currentView, h.fetchItems, h.fetchTrash]);
+  if (!isAuthLoaded) return null;
 
   return (
     <div className="relative animate-in fade-in duration-500 pb-10 max-w-7xl mx-auto px-4">
+      {isFreePlan && h.currentView === 'active' && (
+        <div className="mt-8 p-4 bg-blue-50 border border-blue-100 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="bg-blue-600 p-2 rounded-lg text-white">
+              <CreditCard size={18} />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-blue-900">Free Tier Usage</p>
+              <p className="text-xs text-blue-600 font-medium">{h.totalCount} / 50 SKUs used</p>
+            </div>
+          </div>
+          <div className="flex-1 max-w-md bg-blue-200 h-2 rounded-full overflow-hidden">
+            <div
+              className={`h-full transition-all duration-1000 ${isLimitReached ? 'bg-red-500' : 'bg-blue-600'}`}
+              style={{ width: `${Math.min((h.totalCount / 50) * 100, 100)}%` }}
+            />
+          </div>
+          {isLimitReached ? (
+            <Button
+              onClick={() => navigate('/billing')}
+              size="sm"
+              className="bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg animate-pulse"
+            >
+              <ArrowUpCircle className="mr-2 h-4 w-4" /> Upgrade Now
+            </Button>
+          ) : (
+            <p className="text-xs font-bold text-blue-400 uppercase tracking-tighter">Standard Plan</p>
+          )}
+        </div>
+      )}
+
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4 pt-8">
         <div>
           <h1 className="text-3xl font-black text-slate-900 tracking-tight">
@@ -70,10 +112,16 @@ export default function InventoryView() {
 
           {h.currentView === 'active' && h.isAdmin && (
             <Button
-              onClick={() => h.setIsAddModalOpen(true)}
-              className="bg-blue-600 hover:bg-blue-700 text-white font-bold h-12 rounded-xl shadow-lg shadow-blue-200"
+              onClick={() => !isLimitReached && h.setIsAddModalOpen(true)}
+              disabled={isLimitReached}
+              className={`${
+                isLimitReached
+                ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                : 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-200'
+              } font-bold h-12 rounded-xl transition-all`}
             >
-              <Plus className="mr-2 h-5 w-5" /> Add Product
+              <Plus className="mr-2 h-5 w-5" />
+              {isLimitReached ? 'Limit Reached' : 'Add Product'}
             </Button>
           )}
         </div>
@@ -111,19 +159,11 @@ export default function InventoryView() {
         </div>
       )}
 
-      {h.currentView === 'active' && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-          <StatCard title="Total SKUs" value={h.totalCount} />
-          <StatCard title="Total Units" value={h.items.reduce((acc, item) => acc + item.quantity, 0)} />
-          <StatCard title="Low Stock" value={h.items.filter(i => i.quantity <= 5).length} alert />
-        </div>
-      )}
-
       <div className="bg-white rounded-[2rem] border border-slate-200 shadow-sm overflow-hidden min-h-[400px]">
-        {h.isLoading && h.items.length === 0 ? (
+        {isEffectivelyLoading ? (
           <div className="p-20 flex flex-col items-center justify-center gap-4">
             <Loader2 className="animate-spin text-blue-500" size={40} />
-            <p className="text-slate-400 font-medium">Syncing inventory...</p>
+            <p className="text-slate-400 font-medium">Syncing {h.currentView}...</p>
           </div>
         ) : (
           h.currentView === 'active' ? (
@@ -153,31 +193,9 @@ export default function InventoryView() {
         )}
       </div>
 
-      <AddProductModal
-        isOpen={h.isAddModalOpen}
-        isPending={h.isPending}
-        onClose={() => h.setIsAddModalOpen(false)}
-        onSubmit={h.handleAddProduct}
-      />
-
-      <StockAdjustmentModal
-        item={h.adjustItem}
-        error={h.error}
-        onClose={() => h.setAdjustItem(null)}
-        onSubmit={h.handleStockAdjustment}
-      />
-
-      <ActivityLogDrawer
-        isOpen={!!h.historyItem}
-        itemName={h.historyItem?.name || ''}
-        isLoading={h.isHistoryLoading}
-        data={h.historyData}
-        onClose={() => {
-          h.setHistoryItem(null);
-          h.setHistoryData([]);
-        }}
-      />
-
+      <AddProductModal isOpen={h.isAddModalOpen} isPending={h.isPending} onClose={() => h.setIsAddModalOpen(false)} onSubmit={h.handleAddProduct} />
+      <StockAdjustmentModal item={h.adjustItem} error={h.error} onClose={() => h.setAdjustItem(null)} onSubmit={h.handleStockAdjustment} />
+      <ActivityLogDrawer isOpen={!!h.historyItem} itemName={h.historyItem?.name || ''} isLoading={h.isHistoryLoading} data={h.historyData} onClose={() => { h.setHistoryItem(null); h.setHistoryData([]); }} />
       <DeleteConfirmModal
         itemName={h.itemToDelete?.name || null}
         onClose={() => h.setItemToDelete(null)}

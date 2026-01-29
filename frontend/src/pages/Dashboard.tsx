@@ -1,20 +1,23 @@
 import { useEffect, useMemo, useState } from "react";
 import { useInventory, StockTransaction } from "@/hooks/useInventory";
-import { useOrganization } from "@clerk/clerk-react";
+import { useOrganization, useAuth } from "@clerk/clerk-react";
 import {
   Package, Activity, AlertCircle, Loader2,
   DollarSign, ArrowUpRight, ArrowDownLeft,
-  History, Clock, User, FileDown
+  History, Clock, User, FileDown, Lock
 } from "lucide-react";
 
 export default function Dashboard() {
   const { items, trashedItems, isLoading, fetchItems, fetchTrash, getAuthToken } = useInventory();
   const { organization, isLoaded } = useOrganization();
+  const { has } = useAuth();
   const [recentActivity, setRecentActivity] = useState<StockTransaction[]>([]);
   const [isActivityLoading, setIsActivityLoading] = useState(true);
   const [isDownloading, setIsDownloading] = useState(false);
 
   const tenantId = organization?.id || "personal";
+
+  const isPro = has?.({ plan: 'test' }) || false;
 
   useEffect(() => {
     if (isLoaded) {
@@ -30,6 +33,9 @@ export default function Dashboard() {
               'X-Tenant-ID': tenantId
             }
           });
+
+          if (!res.ok) throw new Error("Failed to fetch activity");
+
           const data = await res.json();
           setRecentActivity(data || []);
         } catch (e) {
@@ -57,6 +63,8 @@ export default function Dashboard() {
   }, [items, trashedItems]);
 
   const handleDownloadReport = async () => {
+    if (!isPro) return;
+
     try {
       setIsDownloading(true);
       const token = await getAuthToken();
@@ -180,11 +188,18 @@ export default function Dashboard() {
 
               <button
                 onClick={handleDownloadReport}
-                disabled={isDownloading}
-                className="w-full bg-blue-600 hover:bg-blue-500 py-4 rounded-2xl font-bold transition-all flex items-center justify-center gap-2 group disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={isDownloading || !isPro}
+                className={`w-full py-4 rounded-2xl font-bold transition-all flex items-center justify-center gap-2 group disabled:opacity-50 ${
+                  isPro ? 'bg-blue-600 hover:bg-blue-500' : 'bg-slate-700 cursor-not-allowed'
+                }`}
               >
                 {isDownloading ? (
                   <Loader2 className="animate-spin" size={18} />
+                ) : !isPro ? (
+                  <>
+                    <Lock size={18} className="text-blue-400" />
+                    Pro Feature
+                  </>
                 ) : (
                   <>
                     Download PDF
@@ -192,6 +207,12 @@ export default function Dashboard() {
                   </>
                 )}
               </button>
+
+              {!isPro && (
+                <p className="text-[10px] text-slate-400 mt-4 text-center uppercase tracking-widest font-bold">
+                  Upgrade to unlock reports
+                </p>
+              )}
             </div>
             <div className="absolute -right-10 -bottom-10 opacity-10">
               <Package size={200} />

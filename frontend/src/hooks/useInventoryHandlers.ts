@@ -7,9 +7,14 @@ export function useInventoryHandlers() {
 
   const [currentView, setCurrentView] = useState<'active' | 'trash'>('active');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [adjustItem, setAdjustItem] = useState<{id: string, name: string, quantity: number, type: 'STOCK_IN' | 'STOCK_OUT'} | null>(null);
-  const [historyItem, setHistoryItem] = useState<{id: string, name: string} | null>(null);
-  const [itemToDelete, setItemToDelete] = useState<{id: string, name: string} | null>(null);
+  const [adjustItem, setAdjustItem] = useState<{
+    id: string;
+    name: string;
+    quantity: number;
+    type: 'STOCK_IN' | 'STOCK_OUT'
+  } | null>(null);
+  const [historyItem, setHistoryItem] = useState<{ id: string, name: string } | null>(null);
+  const [itemToDelete, setItemToDelete] = useState<{ id: string, name: string } | null>(null);
 
   const [historyData, setHistoryData] = useState<StockTransaction[]>([]);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
@@ -17,11 +22,11 @@ export function useInventoryHandlers() {
   const handleAddProduct = async (formData: FormData) => {
     const success = await inventory.addItem({
       name: formData.get("name") as string,
-      quantity: parseInt(formData.get("quantity") as string),
+      quantity: parseInt(formData.get("quantity") as string) || 0,
       sku: formData.get("sku") as string,
       category: formData.get("category") as string,
       price: parseFloat(formData.get("price") as string) || 0,
-      tenantId: inventory.items[0]?.tenantId || "personal"
+      minThreshold: parseInt(formData.get("minThreshold") as string) || 0
     });
     if (success) setIsAddModalOpen(false);
   };
@@ -34,7 +39,13 @@ export function useInventoryHandlers() {
     const amount = parseInt(formData.get("amount") as string);
     const reason = formData.get("reason") as string;
 
-    const success = await inventory.recordMovement(adjustItem.id, amount, adjustItem.type, reason);
+    const success = await inventory.recordMovement(
+      adjustItem.id,
+      amount,
+      adjustItem.type,
+      reason
+    );
+
     if (success) {
       setAdjustItem(null);
       inventory.fetchRecentActivity();
@@ -57,12 +68,18 @@ export function useInventoryHandlers() {
 
   return {
     ...inventory,
-    currentView, setCurrentView,
-    isAddModalOpen, setIsAddModalOpen,
-    adjustItem, setAdjustItem,
-    historyItem, setHistoryItem,
-    itemToDelete, setItemToDelete,
-    historyData, setHistoryData,
+    currentView,
+    setCurrentView,
+    isAddModalOpen,
+    setIsAddModalOpen,
+    adjustItem,
+    setAdjustItem,
+    historyItem,
+    setHistoryItem,
+    itemToDelete,
+    setItemToDelete,
+    historyData,
+    setHistoryData,
     isHistoryLoading,
     handleAddProduct,
     handleStockAdjustment,

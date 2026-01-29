@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 public interface TransactionRepository extends JpaRepository<StockTransaction, UUID> {
@@ -15,9 +16,20 @@ public interface TransactionRepository extends JpaRepository<StockTransaction, U
 
     @Query("SELECT t FROM StockTransaction t LEFT JOIN FETCH t.inventoryItem " +
             "WHERE t.tenantId = :tenantId ORDER BY t.createdAt DESC")
-    List<StockTransaction> findRecentByTenant(@Param("tenantId") String tenantId);
+    List<StockTransaction> findTop10ByTenantIdOrderByCreatedAtDesc(@Param("tenantId") String tenantId);
 
-    List<StockTransaction> findTop10ByTenantIdOrderByCreatedAtDesc(String tenantId);
+    /**
+     * Used by InventoryService for the Dashboard.
+     * Returns raw maps to completely bypass Hibernate's association filtering logic.
+     */
+    @Query(value = "SELECT t.id as id, t.quantity_change as quantityChange, t.type as type, " +
+            "t.reason as reason, t.performed_by as performedBy, t.created_at as createdAt, " +
+            "i.name as itemName " +
+            "FROM stock_transactions t " +
+            "JOIN inventory i ON t.inventory_item_id = i.id " +
+            "WHERE t.tenant_id = :tenantId " +
+            "ORDER BY t.created_at DESC LIMIT 10", nativeQuery = true)
+    List<Map<String, Object>> findRecentTransactionsRaw(@Param("tenantId") String tenantId);
 
     @Modifying
     @Transactional

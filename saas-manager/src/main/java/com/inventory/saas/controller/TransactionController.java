@@ -47,20 +47,18 @@ public class TransactionController {
         return convertToDto(transaction);
     }
 
-    @GetMapping("/{itemId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MEMBER', 'USER')")
-    public List<StockMovementResponseDTO> getHistory(@PathVariable UUID itemId) {
-        return inventoryService.getItemHistory(itemId).stream()
-                .map(this::convertToDto)
-                .collect(Collectors.toList());
-    }
-
     @GetMapping("/recent")
     @PreAuthorize("hasAnyRole('ADMIN', 'MEMBER', 'USER')")
     public List<StockMovementResponseDTO> getRecentActivity(
             @RequestHeader("X-Tenant-ID") String tenantId
     ) {
-        return inventoryService.getRecentTransactions(tenantId).stream()
+        return inventoryService.getRecentTransactionsRaw(tenantId);
+    }
+
+    @GetMapping("/{itemId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MEMBER', 'USER')")
+    public List<StockMovementResponseDTO> getHistory(@PathVariable UUID itemId) {
+        return inventoryService.getItemHistory(itemId).stream()
                 .map(this::convertToDto)
                 .collect(Collectors.toList());
     }

@@ -5,10 +5,13 @@ import com.inventory.saas.dto.InventoryTrashDTO;
 import com.inventory.saas.dto.PaginatedResponseDTO;
 import com.inventory.saas.model.InventoryItem;
 import com.inventory.saas.service.InventoryService;
+import com.inventory.saas.service.BillingGuard;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -21,6 +24,7 @@ import java.util.stream.Collectors;
 public class InventoryController {
 
     private final InventoryService service;
+    private final BillingGuard billingGuard;
 
     private InventoryItemDTO convertToDto(InventoryItem item) {
         return InventoryItemDTO.builder()
@@ -71,8 +75,13 @@ public class InventoryController {
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<InventoryItemDTO> create(
+            @AuthenticationPrincipal Jwt jwt,
             @RequestHeader("X-Tenant-ID") String tenantId,
             @RequestBody InventoryItemDTO dto) {
+
+        String plan = jwt.getClaimAsString("org_plan");
+        billingGuard.validateSkuLimit(tenantId, plan);
+
         dto.setTenantId(tenantId);
         InventoryItem item = convertToEntity(dto);
         return ResponseEntity.ok(convertToDto(service.saveItem(item)));

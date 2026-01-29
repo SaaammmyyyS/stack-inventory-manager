@@ -1,14 +1,22 @@
 import React, { useState } from 'react';
 import { RotateCcw, Trash2, User, Inbox, AlertTriangle, X, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
-import type { InventoryItem } from '../../hooks/useInventory';
 import { Button } from "@/components/ui/button";
+
+interface InventoryItem {
+  id: string;
+  name: string;
+  sku: string;
+  category: string;
+  deletedBy?: string;
+  [key: string]: any;
+}
 
 interface TrashBinTableProps {
   items: InventoryItem[];
   isAdmin: boolean;
   onFetch: () => void;
-  onRestore: (id: string) => void;
-  onHardDelete: (id: string) => void;
+  onRestore: (id: string) => Promise<void>;
+  onHardDelete: (id: string) => Promise<void>;
 }
 
 const TrashBinTable: React.FC<TrashBinTableProps> = ({
@@ -38,15 +46,23 @@ const TrashBinTable: React.FC<TrashBinTableProps> = ({
   };
 
   const handleRestore = async (id: string) => {
-    await onRestore(id);
-    onFetch();
+    try {
+      await onRestore(id);
+      onFetch();
+    } catch (err) {
+      console.error("Failed to restore item", err);
+    }
   };
 
   const confirmDelete = async () => {
     if (itemToDelete) {
-      await onHardDelete(itemToDelete.id);
-      closeDeleteModal();
-      onFetch();
+      try {
+        await onHardDelete(itemToDelete.id);
+        closeDeleteModal();
+        onFetch();
+      } catch (err) {
+        console.error("Failed to purge item", err);
+      }
     }
   };
 
