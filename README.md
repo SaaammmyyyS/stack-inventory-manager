@@ -2,7 +2,7 @@
 
 An enterprise-grade, **Multi-tenant SaaS** platform for real-time inventory tracking. Architected with a high-performance **Spring Boot 3.4** core, a type-safe **React 19** frontend, and a **fully-automated AWS ecosystem** provisioned through **Terraform**.
 
-> **Key Pillar:** Secure data isolation using Hibernate @TenantId, granular RBAC, and **Native Billing Integration**—ensuring every stock movement is logged and enterprise reports are generated, even for items currently in the Recycle Bin.
+> **Key Pillar:** Secure data isolation using Hibernate @TenantId, granular RBAC, and AI-Driven Forecasting—ensuring every stock movement is logged and enterprise insights are generated in real-time.
 
 ---
 
@@ -13,6 +13,7 @@ graph TD
     subgraph External [External Services]
         Clerk[Clerk Auth + Billing]
         Stripe[Stripe Payment Gateway]
+        OpenAI[AI Analysis Engine]
     end
 
     subgraph Client_Layer [Frontend: React 19 + Vite]
@@ -27,19 +28,22 @@ graph TD
         RBAC -- "Admin/Member/User" --> Controller[Inventory Controller]
         Controller --> Service[Inventory Service]
         Service --> ReportSvc[Report Service: OpenPDF]
+        Service --> AiSvc[AI Forecast Service]
     end
 
     subgraph Data_Layer [Persistence: Supabase/PostgreSQL]
         Service -- "Tenant Context" --> Hibernate[Hibernate 7 Engine]
         Hibernate -- "@TenantId Filter" --> DB[(Postgres DB)]
         DB --> Entities[InventoryItem 1:N StockTransaction]
-        Entities -- "Native Join Bypass" --> History[Audit Trail/PDFs]
+        AiSvc -- "Context Extraction" --> Entities
+        AiSvc -.-> OpenAI
     end
 
     style DB fill:#f9f,stroke:#333,stroke-width:2px
     style Gateway fill:#fff4dd,stroke:#d4a017
     style RBAC fill:#e1f5fe,stroke:#01579b
     style Clerk fill:#eee,stroke:#999,stroke-dasharray: 5 5
+    style OpenAI fill:#d1fae5,stroke:#059669
 ```
 
 ## Tech Stack
@@ -52,6 +56,7 @@ graph TD
 
 ### Backend (`saas-manager`)
 * **Framework:** Spring Boot 3.4
+* **AI Engine:** Integrated Analysis Service for stock forecasting and velocity tracking.
 * **Language:** Java 21 (Amazon Corretto)
 * **ORM:** Hibernate 7 (Native `@SoftDelete` & `@TenantId` support)
 * **Reporting:** OpenPDF (Enterprise-grade PDF Engine)
@@ -67,6 +72,7 @@ graph TD
 ## Key Features
 
 - **Multi-tenant Isolation:** Automatic data filtering via Hibernate `@TenantId` and the `X-Tenant-ID` header, ensuring users never see data from other organizations.
+- **AI-Powered Inventory Insights:** Real-time stock forecasting that analyzes transaction history to predict "days-until-out" and generates reorder recommendations.
 - **Native Billing System:** Integrated Clerk billing flow with **Subscription Guards**. Enterprise features like PDF reporting are dynamically gated based on the organization's plan.
 - **Enterprise PDF Reporting:** Automated report generation using `OpenPDF`. Generates weekly snapshots including total valuation, SKU health, and low-stock alerts.
 - **Robust Audit Trail:** Comprehensive tracking of every `STOCK_IN`, `STOCK_OUT`, and lifecycle event (`DELETED`). Uses **Native SQL Join** logic to maintain history visibility even after items are moved to the Recycle Bin.
@@ -109,6 +115,9 @@ In inventory management, a single desync in stock levels can ruin business opera
 ### 3. Subscription-Driven Value
 By integrating Stripe-native billing, I demonstrated how to bridge technical infrastructure with business logic—using custom metadata to gate high-resource features like PDF generation based on the tenant's current plan.
 
+### 4. Predictive Intelligence
+By integrating AI analysis, the platform shifts from a reactive tool (what do I have?) to a proactive partner (what will I run out of next week?).
+
 ---
 
 ## Architectural Decisions (Cost & Efficiency)
@@ -117,7 +126,8 @@ By integrating Stripe-native billing, I demonstrated how to bridge technical inf
 | :--- | :--- | :--- |
 | **Compute** | **AWS App Runner** | Chosen over EKS/ECS to eliminate the "idle cost" of managing clusters. Scalable managed Fargate. |
 | **Database** | **Supabase (PostgreSQL)** | High-performance hosted Postgres with built-in connection pooling. |
-| **Reporting** | **OpenPDF** | Lightweight, Java-native PDF generation that doesn't require external API overhead. |
+| **AI Analysis** | **OpenAI / LLM API** | Serverless inference prevents the massive overhead of hosting and GPU-scaling local ML models. |
+| **Reporting** | **OpenPDF** | Lightweight, Java-native PDF generation that doesn't require external API overhead or per-request costs. |
 | **Auth/Billing** | **Clerk** | Outsourcing Identity and Subscription management allowed me to focus on the core Inventory Logic. |
 | **IaC** | **Terraform** | Automating the `ap-southeast-1` stack setup prevents manual config errors and "Cloud Waste." |
 
