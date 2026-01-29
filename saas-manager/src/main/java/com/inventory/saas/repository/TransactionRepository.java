@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.transaction.annotation.Transactional;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -18,10 +19,8 @@ public interface TransactionRepository extends JpaRepository<StockTransaction, U
             "WHERE t.tenantId = :tenantId ORDER BY t.createdAt DESC")
     List<StockTransaction> findTop10ByTenantIdOrderByCreatedAtDesc(@Param("tenantId") String tenantId);
 
-    /**
-     * Used by InventoryService for the Dashboard.
-     * Returns raw maps to completely bypass Hibernate's association filtering logic.
-     */
+    List<StockTransaction> findByTenantIdAndCreatedAtAfter(String tenantId, LocalDateTime date);
+
     @Query(value = "SELECT t.id as id, t.quantity_change as quantityChange, t.type as type, " +
             "t.reason as reason, t.performed_by as performedBy, t.created_at as createdAt, " +
             "i.name as itemName " +
@@ -40,4 +39,29 @@ public interface TransactionRepository extends JpaRepository<StockTransaction, U
             "WHERE t.inventory_item_id = :itemId AND t.type = 'DELETED' " +
             "ORDER BY t.created_at DESC LIMIT 1", nativeQuery = true)
     String findDeleterByItemId(@Param("itemId") UUID itemId);
+
+    @Query(value = "SELECT * FROM stock_transactions WHERE inventory_item_id = :itemId " +
+            "AND tenant_id = :tenantId " +
+            "AND created_at > NOW() - INTERVAL '30 days' " +
+            "ORDER BY created_at DESC", nativeQuery = true)
+    List<StockTransaction> findLast30DaysByItemAndTenant(
+            @Param("itemId") UUID itemId,
+            @Param("tenantId") String tenantId
+    );
+
+    @Query("SELECT t FROM StockTransaction t JOIN FETCH t.inventoryItem " +
+            "WHERE t.tenantId = :tenantId AND t.createdAt > :date " +
+            "ORDER BY t.createdAt DESC")
+    List<StockTransaction> findAllRecentByTenant(
+            @Param("tenantId") String tenantId,
+            @Param("date") LocalDateTime date
+    );
+
+    @Query("SELECT t FROM StockTransaction t JOIN FETCH t.inventoryItem " +
+            "WHERE t.tenantId = :tenantId AND t.createdAt >= :date " +
+            "ORDER BY t.createdAt DESC")
+    List<StockTransaction> findAiAnalysisData(
+            @Param("tenantId") String tenantId,
+            @Param("date") LocalDateTime date
+    );
 }
