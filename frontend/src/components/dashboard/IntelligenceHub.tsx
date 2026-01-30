@@ -67,14 +67,11 @@ export function IntelligenceHub({ tenantId, getAuthToken, isPro }: IntelligenceH
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-      {/* LEFT COLUMN: Data Visualization & Feed */}
       <div className="lg:col-span-8 space-y-8">
-        {/* Chart Section */}
         <div className="w-full h-[500px]">
           <StockVelocityChart transactions={activities} />
         </div>
 
-        {/* Operations Feed */}
         <div className="bg-white border border-slate-200 rounded-[2.5rem] p-8 shadow-sm">
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center gap-4">
@@ -110,10 +107,8 @@ export function IntelligenceHub({ tenantId, getAuthToken, isPro }: IntelligenceH
         </div>
       </div>
 
-      {/* RIGHT COLUMN: AI Sidebar */}
       <div className="lg:col-span-4 sticky top-12">
         <div className="bg-[#0F172A] rounded-[3rem] p-8 text-white shadow-2xl shadow-blue-900/20 relative overflow-hidden flex flex-col min-h-[720px]">
-          {/* Decorative Gradients */}
           <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600/20 blur-[100px] -mr-32 -mt-32" />
           <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-600/10 blur-[100px] -ml-32 -mb-32" />
 

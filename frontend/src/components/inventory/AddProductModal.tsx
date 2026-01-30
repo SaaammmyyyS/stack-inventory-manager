@@ -10,26 +10,38 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Loader2, PackagePlus, AlertCircle, DollarSign } from "lucide-react";
+import { Loader2, PackagePlus, AlertCircle, DollarSign, BellRing, Info } from "lucide-react";
 
 interface Props {
   isOpen: boolean;
   isPending: boolean;
   error?: string | null;
   onClose: () => void;
-  onSubmit: (formData: FormData) => void;
+  onSubmit: (data: any) => void;
 }
 
 export default function AddProductModal({ isOpen, isPending, error, onClose, onSubmit }: Props) {
+  const isDuplicateError = error?.toLowerCase().includes('duplicate') || error?.toLowerCase().includes('already exists');
+
   const handleFormSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
-    onSubmit(formData);
+
+    const data = {
+      name: formData.get('name')?.toString() || '',
+      sku: formData.get('sku')?.toString() || '',
+      category: formData.get('category')?.toString() || '',
+      quantity: Number(formData.get('quantity')) || 0,
+      price: Number(formData.get('price')) || 0,
+      minThreshold: Number(formData.get('minThreshold')) || 0,
+    };
+
+    onSubmit(data);
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-[550px] rounded-[2.5rem] p-8 border-none shadow-2xl">
+      <DialogContent className="sm:max-w-[550px] rounded-[2.5rem] p-8 border-none shadow-2xl overflow-y-auto max-h-[90vh]">
         <DialogHeader className="space-y-3">
           <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600 mb-2">
             <PackagePlus size={24} />
@@ -43,9 +55,18 @@ export default function AddProductModal({ isOpen, isPending, error, onClose, onS
         </DialogHeader>
 
         {error && (
-          <div className="mt-4 p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 text-red-600 animate-in slide-in-from-top-1">
-            <AlertCircle size={18} className="shrink-0" />
-            <p className="text-sm font-bold leading-tight">{error}</p>
+          <div className={`mt-4 p-4 rounded-2xl flex items-start gap-3 animate-in fade-in slide-in-from-top-2 duration-300 ${
+            isDuplicateError ? 'bg-orange-50 border border-orange-100 text-orange-700' : 'bg-red-50 border border-red-100 text-red-600'
+          }`}>
+            {isDuplicateError ? <Info size={18} className="shrink-0 mt-0.5" /> : <AlertCircle size={18} className="shrink-0 mt-0.5" />}
+            <div>
+              <p className="text-sm font-black uppercase tracking-tight">
+                {isDuplicateError ? 'Duplicate Entry Found' : 'Submission Error'}
+              </p>
+              <p className="text-xs font-bold opacity-80 leading-relaxed">
+                {isDuplicateError ? 'A product with this SKU already exists. Please use a unique identifier.' : error}
+              </p>
+            </div>
           </div>
         )}
 
@@ -71,7 +92,7 @@ export default function AddProductModal({ isOpen, isPending, error, onClose, onS
                 id="sku"
                 name="sku"
                 placeholder="ELEC-001"
-                className="h-12 rounded-xl bg-slate-50 border-none focus-visible:ring-2 focus-visible:ring-blue-500 font-mono"
+                className={`h-12 rounded-xl bg-slate-50 border-none focus-visible:ring-2 font-mono ${isDuplicateError ? 'ring-2 ring-orange-400' : 'focus-visible:ring-blue-500'}`}
               />
             </div>
           </div>
@@ -121,6 +142,21 @@ export default function AddProductModal({ isOpen, isPending, error, onClose, onS
                 />
               </div>
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="minThreshold" className="text-xs font-bold uppercase tracking-wider text-slate-400 ml-1 flex items-center gap-2">
+              <BellRing size={14} className="text-orange-400" />
+              Low Stock Alert Threshold
+            </Label>
+            <Input
+              id="minThreshold"
+              name="minThreshold"
+              type="number"
+              min="0"
+              placeholder="Alert me when stock is below..."
+              className="h-12 rounded-xl bg-orange-50/30 border-dashed border-orange-100 focus-visible:ring-2 focus-visible:ring-orange-400 font-medium"
+            />
           </div>
 
           <DialogFooter className="flex gap-3 pt-4">

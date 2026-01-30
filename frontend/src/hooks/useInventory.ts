@@ -11,6 +11,7 @@ export interface InventoryItem {
   price?: number;
   minThreshold?: number;
   deletedBy?: string;
+  isSending?: boolean;
 }
 
 export interface StockTransaction {
@@ -19,8 +20,8 @@ export interface StockTransaction {
   type: 'STOCK_IN' | 'STOCK_OUT' | 'DELETED' | 'RESTORED';
   reason: string;
   performedBy?: string;
-  createdAt: string;
   itemName?: string;
+  createdAt: string;
 }
 
 export interface FetchOptions {
@@ -155,6 +156,35 @@ export function useInventory() {
     });
   }, [getAuthToken, tenantId, fetchItems]);
 
+  const updateItem = useCallback(async (id: string, data: any): Promise<boolean> => {
+    setError(null);
+    return new Promise((resolve) => {
+      startTransition(async () => {
+        try {
+          const token = await getAuthToken();
+          const response = await fetch(`${API_BASE_URL}/${id}`, {
+            method: 'PUT',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'X-Tenant-ID': tenantId,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+          });
+          if (!response.ok) {
+            const ed = await response.json();
+            throw new Error(ed.message || "Failed to update product");
+          }
+          await fetchItems();
+          resolve(true);
+        } catch (err) {
+          setError(err instanceof Error ? err.message : "Failed to update product");
+          resolve(false);
+        }
+      });
+    });
+  }, [getAuthToken, tenantId, fetchItems]);
+
   const deleteItem = useCallback(async (id: string) => {
     try {
       const token = await getAuthToken();
@@ -281,7 +311,7 @@ export function useInventory() {
   return {
     items, totalCount, trashedItems, recentActivity,
     isLoading, error, setError, isPending, isAdmin, currentPlan,
-    getAuthToken, addItem, deleteItem, restoreItem,
+    getAuthToken, addItem, updateItem, deleteItem, restoreItem,
     permanentlyDelete, recordMovement, fetchTrash,
     fetchItems, fetchHistory, fetchRecentActivity
   };
