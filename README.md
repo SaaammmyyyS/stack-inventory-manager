@@ -13,7 +13,7 @@ graph TD
     subgraph External [External Services]
         Clerk[Clerk Auth + Billing]
         Stripe[Stripe Payment Gateway]
-        OpenAI[AI Analysis Engine]
+        AI[AI Engine: Ollama/OpenAI]
     end
 
     subgraph Client_Layer [Frontend: React 19 + Vite]
@@ -27,23 +27,23 @@ graph TD
         Gateway -- "Role Extraction" --> RBAC{RBAC Filter}
         RBAC -- "Admin/Member/User" --> Controller[Inventory Controller]
         Controller --> Service[Inventory Service]
-        Service --> ReportSvc[Report Service: OpenPDF]
-        Service --> AiSvc[AI Forecast Service]
+        Controller --> AiSvc[AI Forecast Service]
+        AiSvc --> SpringAI[Spring AI / Ollama]
     end
 
     subgraph Data_Layer [Persistence: Supabase/PostgreSQL]
         Service -- "Tenant Context" --> Hibernate[Hibernate 7 Engine]
         Hibernate -- "@TenantId Filter" --> DB[(Postgres DB)]
         DB --> Entities[InventoryItem 1:N StockTransaction]
-        AiSvc -- "Context Extraction" --> Entities
-        AiSvc -.-> OpenAI
+        AiSvc -- "Velocity Analysis" --> Entities
+        SpringAI -.-> AI
     end
 
     style DB fill:#f9f,stroke:#333,stroke-width:2px
     style Gateway fill:#fff4dd,stroke:#d4a017
     style RBAC fill:#e1f5fe,stroke:#01579b
     style Clerk fill:#eee,stroke:#999,stroke-dasharray: 5 5
-    style OpenAI fill:#d1fae5,stroke:#059669
+    style AI fill:#d1fae5,stroke:#059669
 ```
 
 ## Tech Stack
