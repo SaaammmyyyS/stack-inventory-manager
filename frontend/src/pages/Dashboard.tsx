@@ -1,14 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
 import { useInventory } from "@/hooks/useInventory";
 import { useOrganization, useAuth } from "@clerk/clerk-react";
-import { Package, Activity, AlertCircle, Loader2, DollarSign, FileDown, Lock } from "lucide-react";
+import {
+  Package, Activity, AlertCircle, Loader2, DollarSign,
+  FileDown, Lock, LayoutDashboard, Sparkles
+} from "lucide-react";
 import { IntelligenceHub } from "@/components/dashboard/IntelligenceHub";
+import { ForecastView } from "@/components/dashboard/ForecastView";
 
 export default function Dashboard() {
   const { items, trashedItems, isLoading, fetchItems, fetchTrash, getAuthToken } = useInventory();
   const { organization, isLoaded } = useOrganization();
   const { has } = useAuth();
   const [isDownloading, setIsDownloading] = useState(false);
+  const [activeTab, setActiveTab] = useState<'overview' | 'forecast'>('overview');
 
   const tenantId = organization?.id || "personal";
   const isPro = has?.({ plan: 'test' }) || false;
@@ -42,6 +47,9 @@ export default function Dashboard() {
       const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/reports/weekly?orgName=${orgName}`, {
         headers: { 'Authorization': `Bearer ${token}`, 'X-Tenant-ID': tenantId }
       });
+      if (!response.ok) {
+        throw new Error(`Report download failed: ${response.status}`);
+      }
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -50,8 +58,7 @@ export default function Dashboard() {
       document.body.appendChild(link);
       link.click();
       link.remove();
-    } catch (error) {
-      console.error(error);
+      window.URL.revokeObjectURL(url);      console.error(error);
     } finally {
       setIsDownloading(false);
     }
@@ -60,67 +67,94 @@ export default function Dashboard() {
   if (isLoading && items.length === 0) {
     return (
       <div className="h-[70vh] flex flex-col items-center justify-center">
-        <Loader2 className="animate-spin text-blue-600" size={48} />
-        <p className="font-bold uppercase text-xs tracking-[0.3em] text-slate-400 mt-6">Syncing Database</p>
+        <Loader2 className="animate-spin text-primary" size={48} />
+        <p className="font-bold uppercase text-[10px] tracking-[0.3em] text-muted-foreground mt-6">Syncing Database</p>
       </div>
     );
   }
 
   return (
     <div className="max-w-[1600px] mx-auto space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20 px-6">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8">
         <div>
-          <div className="flex items-center gap-3 mb-2">
-            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">System Live</span>
+          <div className="flex items-center gap-3 mb-3">
+            <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.4)]" />
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Live Intelligence Dashboard</span>
           </div>
-          <h2 className="text-5xl font-black text-slate-900 tracking-tight">{organization?.name || "Personal Workspace"}</h2>
-          <p className="text-slate-500 font-medium text-lg mt-2">Real-time inventory intelligence.</p>
+          <h2 className="text-4xl md:text-6xl font-black text-foreground tracking-tighter">
+            {organization?.name || "Personal Workspace"}
+          </h2>
         </div>
 
-        <button
-          onClick={handleDownloadReport}
-          disabled={isDownloading || !isPro}
-          className={`px-6 py-3 rounded-2xl font-bold flex items-center gap-2 transition-all shadow-sm ${
-            isPro ? 'bg-slate-900 text-white hover:bg-slate-800' : 'bg-slate-100 text-slate-400 cursor-not-allowed'
-          }`}
-        >
-          {isDownloading ? <Loader2 className="animate-spin" size={18} /> : isPro ? <><FileDown size={18} /> Report</> : <><Lock size={18} /> Pro Feature</>}
-        </button>
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex bg-muted/50 p-1 rounded-2xl border border-border">
+            {['overview', 'forecast'].map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab as any)}
+                className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-xs capitalize transition-all ${
+                  activeTab === tab
+                  ? 'bg-background text-foreground shadow-lg'
+                  : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {tab === 'overview' ? <LayoutDashboard size={14} /> : <Sparkles size={14} />}
+                {tab}
+              </button>
+            ))}
+          </div>
+
+          <button
+            onClick={handleDownloadReport}
+            disabled={isDownloading || !isPro}
+            className={`px-8 py-3.5 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center gap-2 transition-all ${
+              isPro ? 'bg-foreground text-background hover:opacity-90 shadow-xl' : 'bg-muted text-muted-foreground cursor-not-allowed border border-border'
+            }`}
+          >
+            {isDownloading ? <Loader2 className="animate-spin" size={16} /> : isPro ? <><FileDown size={16} /> Export</> : <><Lock size={16} /> Unlock Pro</>}
+          </button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard title="Inventory Value" value={`$${stats.valuation.toLocaleString()}`} icon={<DollarSign size={24} />} color="blue" trend="+2.4%" />
-        <StatCard title="System Health" value={`${stats.health}%`} icon={<Activity size={24} />} color="emerald" />
-        <StatCard title="Total Units" value={stats.totalUnits.toLocaleString()} icon={<Package size={24} />} color="slate" />
-        <StatCard title="Low Stock" value={stats.lowStock} icon={<AlertCircle size={24} />} color={stats.lowStock > 0 ? "orange" : "slate"} alert={stats.lowStock > 0} />
-      </div>
+      {activeTab === 'overview' ? (
+        <div className="space-y-12 animate-in fade-in duration-500">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
+            <StatCard title="Portfolio Value" value={`$${stats.valuation.toLocaleString()}`} icon={<DollarSign size={22} />} color="blue" trend="+2.4%" />
+            <StatCard title="System Health" value={`${stats.health}%`} icon={<Activity size={22} />} color="emerald" />
+            <StatCard title="Total Units" value={stats.totalUnits.toLocaleString()} icon={<Package size={22} />} color="muted" />
+            <StatCard title="Critical Stock" value={stats.lowStock} icon={<AlertCircle size={22} />} color={stats.lowStock > 0 ? "orange" : "muted"} alert={stats.lowStock > 0} />
+          </div>
 
-      <IntelligenceHub
-        tenantId={tenantId}
-        getAuthToken={getAuthToken}
-        isPro={isPro}
-      />
+          <IntelligenceHub tenantId={tenantId} getAuthToken={getAuthToken} isPro={isPro} />
+        </div>
+      ) : (
+        <div className="animate-in fade-in slide-in-from-right-4 duration-500">
+          <ForecastView tenantId={tenantId} getAuthToken={getAuthToken} isPro={isPro} />
+        </div>
+      )}
     </div>
   );
 }
 
 function StatCard({ title, value, icon, color, alert, trend }: any) {
   const colors: any = {
-    blue: "bg-blue-50 text-blue-600",
-    emerald: "bg-emerald-50 text-emerald-600",
-    orange: "bg-orange-50 text-orange-600",
-    slate: "bg-slate-50 text-slate-500"
+    blue: "bg-blue-500/10 text-blue-500",
+    emerald: "bg-emerald-500/10 text-emerald-500",
+    orange: "bg-destructive/10 text-destructive",
+    muted: "bg-muted text-muted-foreground"
   };
   return (
-    <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all group relative overflow-hidden">
-      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-6 transition-transform group-hover:rotate-6 ${colors[color]}`}>{icon}</div>
+    <div className="bg-card p-8 rounded-4xl border border-border shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all group relative overflow-hidden">
+      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-6 transition-transform group-hover:rotate-6 ${colors[color]}`}>
+        {icon}
+      </div>
       <div className="relative z-10">
         <div className="flex items-center justify-between">
-          <p className="text-slate-400 font-bold text-xs uppercase tracking-[0.15em]">{title}</p>
-          {trend && <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg">{trend}</span>}
+          <p className="text-muted-foreground font-bold text-[10px] uppercase tracking-[0.2em]">{title}</p>
+          {trend && <span className="text-[10px] font-black text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-md">{trend}</span>}
         </div>
-        <h3 className={`text-4xl font-black mt-2 tracking-tighter ${alert ? 'text-orange-600' : 'text-slate-900'}`}>{value}</h3>
+        <h3 className={`text-4xl font-black mt-2 tracking-tighter ${alert ? 'text-destructive' : 'text-foreground'}`}>{value}</h3>
       </div>
     </div>
   );

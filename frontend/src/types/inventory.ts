@@ -17,7 +17,25 @@ export interface StockTransaction {
   type: 'STOCK_IN' | 'STOCK_OUT' | 'DELETED' | 'RESTORED';
   reason: string;
   performedBy?: string;
+  itemName?: string;
   createdAt: string;
+}
+
+export interface StockAIInsight {
+  sku: string;
+  itemName: string;
+  currentQuantity: number;
+  daysRemaining: number;
+  predictedDepletionDate: string;
+  healthStatus: 'STABLE' | 'WARNING' | 'CRITICAL' | 'OVERSTOCKED';
+  confidenceScore: number;
+}
+
+export interface InventorySummary {
+  status: string;
+  summary: string;
+  urgentActions: string[];
+  healthScore: number;
 }
 
 export interface FetchOptions {
