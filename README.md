@@ -1,135 +1,108 @@
-# 📦 stack-inventory-manager
+# stack-inventory-manager
 
-An enterprise-grade, **Multi-tenant SaaS** platform for real-time inventory tracking. Architected with a high-performance **Spring Boot 3.4** core, a type-safe **React 19** frontend, and a **fully-automated AWS ecosystem** provisioned through **Terraform**.
+A multi-tenant SaaS platform for real-time inventory management built with a focus on **data isolation, concurrency safety, and subscription-aware backend enforcement**.
 
-> **Key Pillar:** Secure data isolation using Hibernate @TenantId, granular RBAC, and AI-Driven Forecasting—ensuring every stock movement is logged and enterprise insights are generated in real-time.
+The system addresses a common B2B SaaS challenge: multiple organizations sharing infrastructure without ever sharing data, while supporting high write throughput, operational correctness, and feature-tier differentiation.
 
----
+The AI layer follows a **grounded analytics approach**, where live transactional data is programmatically assembled and provided to the model for contextual analysis — rather than relying on embedding-based retrieval (RAG).
 
-## System Architecture
 
+
+## 🏗️ System Architecture
 ```mermaid
 graph TD
-    subgraph External [External Services]
-        Clerk[Clerk Auth + Billing]
-        Stripe[Stripe Payment Gateway]
-        AI[AI Engine: Ollama/OpenAI]
-    end
-
-    subgraph Client_Layer [Frontend: React 19 + Vite]
+    subgraph Client_Layer [Frontend: React 19 + TypeScript]
         User((User)) --> WebApp[Vite Dashboard]
-        WebApp -.->|Session Token| Clerk
-        WebApp -.->|Portal| Stripe
+        WebApp -.->|JWT/OIDC| Clerk[Clerk Auth]
     end
 
     subgraph API_Layer [Backend: Spring Boot 3.4]
-        WebApp -- "HTTP + JWT + X-Tenant-ID" --> Gateway[Spring Security]
-        Gateway -- "Role Extraction" --> RBAC{RBAC Filter}
-        RBAC -- "Admin/Member/User" --> Controller[Inventory Controller]
-        Controller --> Service[Inventory Service]
-        Controller --> AiSvc[AI Forecast Service]
-        AiSvc --> SpringAI[Spring AI / Ollama]
+        WebApp -- "HTTP + X-Tenant-ID" --> Gateway[Spring Security Filter Chain]
+        Gateway -- "TenantContext Holder" --> Controller[Inventory Controller]
+        Controller --> DTO[DTO Projection Layer]
+        DTO --> Service[Inventory Service]
+        Service --> AiSvc[Grounded Analytics Service]
+        AiSvc --> LLM[LLM via Spring AI / OpenAI]
     end
 
-    subgraph Data_Layer [Persistence: Supabase/PostgreSQL]
-        Service -- "Tenant Context" --> Hibernate[Hibernate 7 Engine]
-        Hibernate -- "@TenantId Filter" --> DB[(Postgres DB)]
-        DB --> Entities[InventoryItem 1:N StockTransaction]
-        AiSvc -- "Velocity Analysis" --> Entities
-        SpringAI -.-> AI
+    subgraph Data_Layer [Persistence: PostgreSQL]
+        Service -- "Hibernate @TenantId" --> DB[(Supabase/Postgres)]
+        DB --> Logic{Soft Delete / Audit}
     end
 
-    style DB fill:#f9f,stroke:#333,stroke-width:2px
-    style Gateway fill:#fff4dd,stroke:#d4a017
-    style RBAC fill:#e1f5fe,stroke:#01579b
-    style Clerk fill:#eee,stroke:#999,stroke-dasharray: 5 5
-    style AI fill:#d1fae5,stroke:#059669
+    subgraph Infrastructure [DevOps]
+        TF[Terraform] --> AppRunner[AWS App Runner]
+        TF --> ECR[Amazon ECR]
+    end
+
 ```
+## 🛠️ Technical Specifications
 
-## Tech Stack
+### Backend (saas-manager)
+* **Runtime:** Java 21 (Amazon Corretto) utilizing **Virtual Threads** for high-throughput I/O.
+* **Multi-tenancy:** Shared-database, shared-schema approach using **Hibernate 7 `@TenantId`**. Tenant resolution is handled via a custom `CurrentTenantIdentifierResolver` linked to the `X-Tenant-ID` header.
+* **Persistence:** PostgreSQL (Supabase) with **Hibernate Soft Delete** for lifecycle management.
+* **Security:** Stateless JWT validation with **Method-Level RBAC** using `@PreAuthorize`.
+* **Reporting:** Low-overhead PDF generation via **OpenPDF**, avoiding the resource cost of headless browser rendering.
 
-### Frontend
-* **Framework:** React 19+ (Vite)
-* **Language:** TypeScript
-* **Styling:** Tailwind CSS
-* **Auth & Billing:** Clerk (Identity, Org Management & Stripe Native Billing)
+### Frontend (frontend)
+* **Framework:** React 19 (Concurrent Mode) + Vite.
+* **State Management:** React Query for server-state synchronization and optimistic UI updates.
+* **Auth/Billing:** Clerk-integrated middleware for organization-switching and Stripe-gated API access.
 
-### Backend (`saas-manager`)
-* **Framework:** Spring Boot 3.4
-* **AI Engine:** Integrated Analysis Service for stock forecasting and velocity tracking.
-* **Language:** Java 21 (Amazon Corretto)
-* **ORM:** Hibernate 7 (Native `@SoftDelete` & `@TenantId` support)
-* **Reporting:** OpenPDF (Enterprise-grade PDF Engine)
-* **Database:** Supabase (PostgreSQL) + H2 (Testing)
-* **Security:** Spring Security + Method-level RBAC (`@PreAuthorize`)
+### Infrastructure
+* **Provider:** AWS (Region: `ap-southeast-1`).
+* **Deployment:** Containerized via **multi-stage Docker builds** (distroless-style) and deployed on **AWS App Runner**.
+* **IaC:** Terraform modules for VPC-less App Runner configuration and ECR lifecycle policies.
 
-### Infrastructure & DevOps
-* **Cloud:** AWS (Region: `ap-southeast-1`)
-* **Compute:** AWS App Runner
-* **IaC:** Terraform
-* **Containerization:** Docker (Multi-stage builds)
+## 🚀 Engineering Highlights
 
-## Key Features
+### 1. Robust Data Isolation
+Unlike standard "Where" clause filtering, this system implements **Hibernate 7 Tenant Filtering** at the session level. Every database interaction is natively scoped to a `tenant_id`, mitigating the risk of Cross-Tenant Data Leaks—a critical requirement for B2B SaaS compliance.
 
-- **Multi-tenant Isolation:** Automatic data filtering via Hibernate `@TenantId` and the `X-Tenant-ID` header, ensuring users never see data from other organizations.
-- **AI-Powered Inventory Insights:** Real-time stock forecasting that analyzes transaction history to predict "days-until-out" and generates reorder recommendations.
-- **Native Billing System:** Integrated Clerk billing flow with **Subscription Guards**. Enterprise features like PDF reporting are dynamically gated based on the organization's plan.
-- **Enterprise PDF Reporting:** Automated report generation using `OpenPDF`. Generates weekly snapshots including total valuation, SKU health, and low-stock alerts.
-- **Robust Audit Trail:** Comprehensive tracking of every `STOCK_IN`, `STOCK_OUT`, and lifecycle event (`DELETED`). Uses **Native SQL Join** logic to maintain history visibility even after items are moved to the Recycle Bin.
-- **Strict DTO Architecture:** 100% adherence to the DTO pattern in the Controller layer, ensuring total separation between the persistence layer and API contracts.
-- **Dynamic Dashboard:** Real-time intelligence dashboard with health-ratio stats, live transaction feeds, and organization-level plan management.
+### 2. Strict DTO & Contract Integrity
+The `saas-manager` enforces a strict separation between the Persistence Layer and the Web Layer. 
+* **Inbound:** Request DTOs validate constraints before hitting the service layer.
+* **Outbound:** Projections ensure internal database schemas (like password hashes or internal IDs) are never leaked to the frontend.
 
-## 🛠️ Local Development & Testing
+### 3. Predictive "Days-Until-Out" Analysis
 
-### Prerequisites
-- JDK 21+ (Amazon Corretto)
-- Node.js 20+
-- Docker
+Forecasting uses a hybrid deterministic + grounded LLM analytics approach.
 
-### Running Tests
-To verify the multi-tenancy logic and security filters without connecting to your production DB:
+- **Deterministic Core:** Consumption velocity is calculated using rolling 7-day and 30-day windows. A linear regression model predicts the estimated depletion date based on historical stock-out trends.
+- **Grounded LLM Layer:** Structured inventory data, recent transactions, and computed metrics are assembled at runtime and injected into the LLM prompt for contextual analysis and human-readable insight generation.
+- **Not RAG:** The system does not use embedding-based document retrieval. Instead, it relies on deterministic database queries to provide real-time operational context.
+- **Safety Model:** Alerts and reorder thresholds remain rule-based to prevent non-deterministic AI output from affecting operational correctness.
+- **Cost Control:** Forecasting operations are batched per tenant to avoid per-request LLM overhead.
 
-```bash
-cd saas-manager
-mvn clean test
-```
-```bash
-# Build & Push Backend
-docker build -t saas-backend ./saas-manager
-docker tag saas-backend:latest YOUR_ACCOUNT_ID.dkr.ecr.ap-southeast-1.amazonaws.com/saas-backend:latest
-docker push YOUR_ACCOUNT_ID.dkr.ecr.ap-southeast-1.amazonaws.com/saas-backend:latest
-```
+This ensures forecasting remains explainable, context-aware, and operationally safe.
 
----
 
-## Why I Built This
+### 4. Subscription-Aware Feature Gating
+The backend doesn't just check roles; it checks **Tenant Plan Metadata**. High-compute tasks (like AI forecasting and PDF batch processing) are intercepted by a `SubscriptionGuard` that validates the organization's Stripe status via Clerk metadata before execution.
 
-I developed **stack-inventory-manager** to solve the complex architectural challenges inherent in modern SaaS environments.
+## 🧠 AI Architecture Approach
 
-### 1. The "SaaS First" Mentality
-I implemented **Multi-tenancy at the database level**. This ensures that the platform can scale to support thousands of independent organizations while maintaining strict "siloed" security.
+The AI system follows a **Structured Context Grounding** pattern:
 
-### 2. High-Consistency Architecture
-In inventory management, a single desync in stock levels can ruin business operations. I built this using a **Transaction-first approach**, where every movement is backed by an immutable audit trail. I implemented native SQL joins to ensure that history is never "lost" when an item is deleted, bypassing Hibernate's default soft-delete filters for auditing.
+1. Application queries relevant inventory items and transaction history
+2. Metrics (velocity, trends, depletion estimates) are computed deterministically
+3. Structured context is assembled and injected into the LLM prompt
+4. The LLM produces analysis, explanations, and recommendations
 
-### 3. Subscription-Driven Value
-By integrating Stripe-native billing, I demonstrated how to bridge technical infrastructure with business logic—using custom metadata to gate high-resource features like PDF generation based on the tenant's current plan.
+This differs from traditional RAG systems, which rely on vector databases and semantic retrieval. Here, the context source of truth is the live transactional database, ensuring responses remain aligned with real operational data.
 
-### 4. Predictive Intelligence
-By integrating AI analysis, the platform shifts from a reactive tool (what do I have?) to a proactive partner (what will I run out of next week?).
 
----
 
-## Architectural Decisions (Cost & Efficiency)
+## ⚖️ Engineering Tradeoffs
 
-| Service | Choice | Why? (Cost & Logic) |
-| :--- | :--- | :--- |
-| **Compute** | **AWS App Runner** | Chosen over EKS/ECS to eliminate the "idle cost" of managing clusters. Scalable managed Fargate. |
-| **Database** | **Supabase (PostgreSQL)** | High-performance hosted Postgres with built-in connection pooling. |
-| **AI Analysis** | **OpenAI / LLM API** | Serverless inference prevents the massive overhead of hosting and GPU-scaling local ML models. |
-| **Reporting** | **OpenPDF** | Lightweight, Java-native PDF generation that doesn't require external API overhead or per-request costs. |
-| **Auth/Billing** | **Clerk** | Outsourcing Identity and Subscription management allowed me to focus on the core Inventory Logic. |
-| **IaC** | **Terraform** | Automating the `ap-southeast-1` stack setup prevents manual config errors and "Cloud Waste." |
+| Decision | Benefit | Cost / Limitation |
+|----------|---------|-------------------|
+| Shared-schema multi-tenancy | Simple scaling and migrations | Harder per-tenant indexing |
+| Hibernate tenant filters | Automatic isolation enforcement | Native queries require manual review |
+| Virtual Threads | Handles blocking I/O at scale | More complex thread dump analysis |
+| App Runner over ECS/EKS | No cluster operations overhead | Less infrastructure-level control |
+| AI-assisted insights | Faster iteration | Non-deterministic output and cost per call |
+| Soft delete strategy | Preserves audit history | Reporting queries require explicit filter control |
 
-### 🛠️ The "Zero-Waste" Deployment Flow
-By utilizing **Docker multi-stage builds**, the final production images are stripped of build-tools, resulting in tiny footprints. This reduces storage costs in ECR and speeds up deployment times.
+    
