@@ -42,8 +42,11 @@ export function useInventoryHandlers() {
     if (!adjustItem) return;
 
     const formData = new FormData(e.currentTarget);
-    const amount = parseInt(formData.get("amount") as string);
+    const amountStr = formData.get("amount") as string;
+    const amount = parseInt(amountStr);
     const reason = formData.get("reason") as string;
+
+    if (isNaN(amount)) return;
 
     const success = await inventory.recordMovement(
       adjustItem.id,

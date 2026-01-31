@@ -32,6 +32,7 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .requestMatchers("/api/webhooks/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .oauth2ResourceServer(oauth -> oauth.jwt(jwt ->
@@ -73,7 +74,14 @@ public class SecurityConfig {
                 "https://dmtc2sumyu.ap-southeast-1.awsapprunner.com"
         ));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Tenant-ID", "X-Performed-By", "Cache-Control"));
+        config.setAllowedHeaders(List.of(
+                "Authorization",
+                "Content-Type",
+                "X-Tenant-ID",
+                "X-Performed-By",
+                "X-Organization-Plan",
+                "Cache-Control"
+        ));
         config.setExposedHeaders(List.of("Content-Disposition", "X-Performed-By"));
         config.setAllowCredentials(true);
 

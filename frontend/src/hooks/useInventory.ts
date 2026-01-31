@@ -46,9 +46,12 @@ export function useInventory() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const [currentPlan, setCurrentPlan] = useState<string>('free');
 
   const tenantId = useMemo(() => organization?.id || user?.id || "personal", [organization, user]);
+
+  const currentPlan = useMemo(() => {
+    return (organization?.publicMetadata?.plan as string) || 'free';
+  }, [organization]);
 
   const isAdmin = useMemo(() => {
     const isOrgAdmin = membership?.role === "org:admin" || membership?.role === "admin";
@@ -60,32 +63,29 @@ export function useInventory() {
     getToken({ template: "spring-boot-backend" }),
   [getToken]);
 
-  const syncPlanFromToken = useCallback(async () => {
+  /**
+   * Helper to perform authorized fetches with our custom "Clean" headers
+   */
+  const fetchWithAuth = useCallback(async (url: string, options: RequestInit = {}) => {
     const token = await getAuthToken();
-    if (token) {
-      try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        const plan = payload.org_plan || payload.plan || 'free';
-        const lowerPlan = plan.toLowerCase();
-        setCurrentPlan(lowerPlan);
-        return lowerPlan;
-      } catch (e) {
-        setCurrentPlan('free');
-        return 'free';
-      }
-    }
-    return 'free';
-  }, [getAuthToken]);
+    const headers = {
+      ...options.headers,
+      'Authorization': `Bearer ${token}`,
+      'X-Tenant-ID': tenantId,
+      'X-Organization-Plan': currentPlan,
+      'Content-Type': 'application/json',
+    };
+
+    return fetch(url, { ...options, headers });
+  }, [getAuthToken, tenantId, currentPlan]);
 
   const fetchItems = useCallback(async (options: FetchOptions = {}) => {
     if (!isOrgLoaded) return;
     setIsLoading(true);
-    await syncPlanFromToken();
 
     const { page = 1, limit = 10, search = "", category = "" } = options;
 
     try {
-      const token = await getAuthToken();
       const query = new URLSearchParams({
         page: page.toString(),
         limit: limit.toString(),
@@ -93,12 +93,7 @@ export function useInventory() {
         category,
       });
 
-      const response = await fetch(`${API_BASE_URL}?${query.toString()}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'X-Tenant-ID': tenantId
-        }
-      });
+      const response = await fetchWithAuth(`${API_BASE_URL}?${query.toString()}`);
 
       if (!response.ok) throw new Error("Could not load inventory");
       const data = await response.json();
@@ -109,19 +104,13 @@ export function useInventory() {
     } finally {
       setIsLoading(false);
     }
-  }, [getAuthToken, tenantId, isOrgLoaded, syncPlanFromToken]);
+  }, [fetchWithAuth, isOrgLoaded]);
 
   const fetchTrash = useCallback(async () => {
     if (!isOrgLoaded) return;
     setIsLoading(true);
     try {
-      const token = await getAuthToken();
-      const response = await fetch(`${API_BASE_URL}/trash`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'X-Tenant-ID': tenantId
-        }
-      });
+      const response = await fetchWithAuth(`${API_BASE_URL}/trash`);
       const data = await response.json();
       setTrashedItems(Array.isArray(data) ? data : []);
     } catch (err) {
@@ -129,26 +118,20 @@ export function useInventory() {
     } finally {
       setIsLoading(false);
     }
-  }, [getAuthToken, tenantId, isOrgLoaded]);
+  }, [fetchWithAuth, isOrgLoaded]);
 
   const addItem = useCallback(async (data: any): Promise<boolean> => {
     setError(null);
     return new Promise((resolve) => {
       startTransition(async () => {
         try {
-          const token = await getAuthToken();
-          const response = await fetch(API_BASE_URL, {
+          const response = await fetchWithAuth(API_BASE_URL, {
             method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'X-Tenant-ID': tenantId,
-              'Content-Type': 'application/json'
-            },
             body: JSON.stringify({ ...data, tenantId })
           });
           if (!response.ok) {
-             const ed = await response.json();
-             throw new Error(ed.message || "Failed to add product");
+              const ed = await response.json();
+              throw new Error(ed.message || "Failed to add product");
           }
           await fetchItems();
           resolve(true);
@@ -158,21 +141,15 @@ export function useInventory() {
         }
       });
     });
-  }, [getAuthToken, tenantId, fetchItems]);
+  }, [fetchWithAuth, tenantId, fetchItems]);
 
   const updateItem = useCallback(async (id: string, data: any): Promise<boolean> => {
     setError(null);
     return new Promise((resolve) => {
       startTransition(async () => {
         try {
-          const token = await getAuthToken();
-          const response = await fetch(`${API_BASE_URL}/${id}`, {
+          const response = await fetchWithAuth(`${API_BASE_URL}/${id}`, {
             method: 'PUT',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'X-Tenant-ID': tenantId,
-              'Content-Type': 'application/json'
-            },
             body: JSON.stringify(data)
           });
           if (!response.ok) {
@@ -187,59 +164,40 @@ export function useInventory() {
         }
       });
     });
-  }, [getAuthToken, tenantId, fetchItems]);
+  }, [fetchWithAuth, fetchItems]);
 
   const deleteItem = useCallback(async (id: string) => {
     try {
-      const token = await getAuthToken();
       const adminName = user?.fullName || "Admin";
-      await fetch(`${API_BASE_URL}/${id}`, {
+      await fetchWithAuth(`${API_BASE_URL}/${id}`, {
         method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'X-Tenant-ID': tenantId,
-          'X-Performed-By': adminName
-        }
+        headers: { 'X-Performed-By': adminName }
       });
       setItems(prev => prev.filter(item => item.id !== id));
       fetchTrash();
     } catch (err) {
       setError("Delete failed.");
     }
-  }, [getAuthToken, tenantId, user, fetchTrash]);
+  }, [fetchWithAuth, user, fetchTrash]);
 
   const restoreItem = useCallback(async (id: string) => {
     try {
-      const token = await getAuthToken();
-      await fetch(`${API_BASE_URL}/restore/${id}`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'X-Tenant-ID': tenantId
-        }
-      });
+      await fetchWithAuth(`${API_BASE_URL}/restore/${id}`, { method: 'PUT' });
       fetchItems();
       fetchTrash();
     } catch (err) {
       setError("Restore failed");
     }
-  }, [getAuthToken, tenantId, fetchItems, fetchTrash]);
+  }, [fetchWithAuth, fetchItems, fetchTrash]);
 
   const permanentlyDelete = useCallback(async (id: string) => {
     try {
-      const token = await getAuthToken();
-      await fetch(`${API_BASE_URL}/permanent/${id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'X-Tenant-ID': tenantId
-        }
-      });
+      await fetchWithAuth(`${API_BASE_URL}/permanent/${id}`, { method: 'DELETE' });
       setTrashedItems(prev => prev.filter(item => item.id !== id));
     } catch (err) {
       setError("Permanent delete failed");
     }
-  }, [getAuthToken, tenantId]);
+  }, [fetchWithAuth]);
 
   const recordMovement = useCallback(async (
     itemId: string,
@@ -249,14 +207,8 @@ export function useInventory() {
   ): Promise<boolean> => {
     setError(null);
     try {
-      const token = await getAuthToken();
-      const response = await fetch(`${TRANSACTION_URL}/${itemId}`, {
+      const response = await fetchWithAuth(`${TRANSACTION_URL}/${itemId}`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'X-Tenant-ID': tenantId,
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify({
           amount,
           type,
@@ -276,41 +228,29 @@ export function useInventory() {
       setError(err instanceof Error ? err.message : "Adjustment error");
       return false;
     }
-  }, [getAuthToken, tenantId, user, fetchItems]);
+  }, [fetchWithAuth, user, fetchItems]);
 
   const fetchHistory = useCallback(async (itemId: string): Promise<StockTransaction[]> => {
     if (!itemId) return [];
     try {
-      const token = await getAuthToken();
-      const response = await fetch(`${TRANSACTION_URL}/${itemId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'X-Tenant-ID': tenantId
-        }
-      });
+      const response = await fetchWithAuth(`${TRANSACTION_URL}/${itemId}`);
       if (!response.ok) throw new Error("History fetch failed");
       return await response.json();
     } catch (err) {
       return [];
     }
-  }, [getAuthToken, tenantId]);
+  }, [fetchWithAuth]);
 
   const fetchRecentActivity = useCallback(async () => {
     if (!isOrgLoaded) return;
     try {
-      const token = await getAuthToken();
-      const response = await fetch(`${TRANSACTION_URL}/recent`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'X-Tenant-ID': tenantId
-        }
-      });
+      const response = await fetchWithAuth(`${TRANSACTION_URL}/recent`);
       const data = await response.json();
       setRecentActivity(Array.isArray(data) ? data : []);
     } catch (err) {
       setError("Failed to load activity feed");
     }
-  }, [getAuthToken, tenantId, isOrgLoaded]);
+  }, [fetchWithAuth, isOrgLoaded]);
 
   return {
     items, totalCount, trashedItems, recentActivity,

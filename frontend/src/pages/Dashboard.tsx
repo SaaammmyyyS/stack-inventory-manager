@@ -51,7 +51,6 @@ export default function Dashboard() {
       const token = await getAuthToken();
       const orgName = encodeURIComponent(organization?.name || "Personal Workspace");
 
-      // Removed X-Tenant-Plan to prevent CORS issues and align with backend default logic
       const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/reports/weekly?orgName=${orgName}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
