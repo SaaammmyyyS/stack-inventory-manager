@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus, Trash2, Loader2, AlertCircle, Package, Search, CreditCard, ArrowUpCircle } from 'lucide-react';
+import { Plus, Trash2, Loader2, Package, Search, CreditCard, ArrowUpCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -24,15 +24,19 @@ import { useInventoryHandlers } from '@/hooks/useInventoryHandlers';
 export default function InventoryView() {
   const h = useInventoryHandlers();
   const navigate = useNavigate();
-  const { has, isLoaded: isAuthLoaded } = useAuth();
+  const { isLoaded: isAuthLoaded } = useAuth();
 
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
   const [page, setPage] = useState(1);
   const limit = 10;
 
-  const isPro = has?.({ plan: 'test' }) || false;
-  const isFreePlan = !isPro;
+  /**
+   * PLAN LOGIC
+   * TODO: Currently, 'currentPlan' defaults to 'free' in the hook because
+   * JWT extraction is disabled. Update this once Clerk JWT claims are working.
+   */
+  const isFreePlan = h.currentPlan === 'free';
   const isLimitReached = isFreePlan && h.totalCount >= 50;
 
   const isEffectivelyLoading = h.isLoading &&
@@ -127,6 +131,7 @@ export default function InventoryView() {
           )}
         </div>
       </div>
+
       {h.currentView === 'active' && (
         <div className="flex flex-col sm:flex-row gap-4 mb-8">
           <div className="relative flex-1">

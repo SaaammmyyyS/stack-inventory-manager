@@ -25,8 +25,11 @@ public class ReportService {
 
     private final InventoryRepository inventoryRepository;
     private final TransactionRepository transactionRepository;
+    private final BillingGuard billingGuard;
 
-    public byte[] generateWeeklyReport(String tenantId, String orgName) {
+    public byte[] generateWeeklyReport(String tenantId, String orgName, String plan) {
+        billingGuard.validateReportLimit(tenantId, plan);
+
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         Document document = new Document(PageSize.A4);
 
@@ -82,7 +85,7 @@ public class ReportService {
                 transTable.addCell(new PdfPCell(new Paragraph(t.getCreatedAt().toString().substring(0,10), bodyFont)));
                 String itemName = (t.getInventoryItem() != null) ? t.getInventoryItem().getName() : "Deleted Item";
                 transTable.addCell(new PdfPCell(new Paragraph(itemName, bodyFont)));
-                transTable.addCell(new PdfPCell(new Paragraph(t.getType(), bodyFont)));
+                transTable.addCell(new PdfPCell(new Paragraph(t.getType().toString(), bodyFont)));
                 transTable.addCell(new PdfPCell(new Paragraph(String.valueOf(t.getQuantityChange()), bodyFont)));
             }
             document.add(transTable);

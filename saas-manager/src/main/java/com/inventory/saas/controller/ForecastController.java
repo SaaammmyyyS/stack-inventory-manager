@@ -20,8 +20,10 @@ public class ForecastController {
     @GetMapping("/summary")
     @PreAuthorize("hasAnyRole('ADMIN', 'MEMBER')")
     public ResponseEntity<InventorySummaryAnalysisDTO> getGlobalInventoryAnalysis(
-            @RequestHeader("X-Tenant-ID") String tenantId) {
-        InventorySummaryAnalysisDTO analysis = aiForecastService.getGlobalAnalysis(tenantId);
+            @RequestHeader("X-Tenant-ID") String tenantId,
+            @RequestHeader(value = "X-Tenant-Plan", defaultValue = "free") String plan) {
+
+        InventorySummaryAnalysisDTO analysis = aiForecastService.getGlobalAnalysis(tenantId, plan);
         return ResponseEntity.ok(analysis);
     }
 

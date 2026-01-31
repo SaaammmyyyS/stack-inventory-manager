@@ -7,9 +7,10 @@ interface ForecastViewProps {
   tenantId: string;
   getAuthToken: () => Promise<string>;
   isPro: boolean;
+  plan?: string;
 }
 
-export function ForecastView({ tenantId, getAuthToken, isPro }: ForecastViewProps) {
+export function ForecastView({ tenantId, getAuthToken, isPro, plan }: ForecastViewProps) {
   const [insights, setInsights] = useState<StockAIInsight[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -19,14 +20,25 @@ export function ForecastView({ tenantId, getAuthToken, isPro }: ForecastViewProp
       try {
         const token = await getAuthToken();
         const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/v1/forecast/all`, {
-          headers: { 'Authorization': `Bearer ${token}`, 'X-Tenant-ID': tenantId }
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'X-Tenant-ID': tenantId,
+            'X-Tenant-Plan': plan || 'free'
+          }
         });
+
+        if (!res.ok) throw new Error("Failed to fetch forecasts");
+
         const data = await res.json();
         setInsights(data || []);
-      } catch (e) { console.error(e); } finally { setIsLoading(false); }
+      } catch (e) {
+        console.error("Forecast Error:", e);
+      } finally {
+        setIsLoading(false);
+      }
     };
     fetchForecasts();
-  }, [tenantId, getAuthToken, isPro]);
+  }, [tenantId, getAuthToken, isPro, plan]);
 
   if (!isPro) {
     return (

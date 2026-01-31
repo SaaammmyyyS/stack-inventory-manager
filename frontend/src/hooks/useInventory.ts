@@ -51,7 +51,7 @@ export function useInventory() {
   const tenantId = useMemo(() => organization?.id || user?.id || "personal", [organization, user]);
 
   const isAdmin = useMemo(() => {
-    const isOrgAdmin = membership?.role === "org:admin";
+    const isOrgAdmin = membership?.role === "org:admin" || membership?.role === "admin";
     const isMetadataAdmin = user?.publicMetadata?.role === 'admin';
     return isOrgAdmin || isMetadataAdmin;
   }, [membership, user]);
@@ -65,12 +65,16 @@ export function useInventory() {
     if (token) {
       try {
         const payload = JSON.parse(atob(token.split('.')[1]));
-        const plan = payload.org_plan || 'free';
-        setCurrentPlan(plan.toLowerCase());
+        const plan = payload.org_plan || payload.plan || 'free';
+        const lowerPlan = plan.toLowerCase();
+        setCurrentPlan(lowerPlan);
+        return lowerPlan;
       } catch (e) {
         setCurrentPlan('free');
+        return 'free';
       }
     }
+    return 'free';
   }, [getAuthToken]);
 
   const fetchItems = useCallback(async (options: FetchOptions = {}) => {

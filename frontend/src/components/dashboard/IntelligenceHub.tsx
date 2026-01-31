@@ -11,9 +11,10 @@ interface IntelligenceHubProps {
   tenantId: string;
   getAuthToken: () => Promise<string>;
   isPro: boolean;
+  plan?: string;
 }
 
-export function IntelligenceHub({ tenantId, getAuthToken, isPro }: IntelligenceHubProps) {
+export function IntelligenceHub({ tenantId, getAuthToken, isPro, plan }: IntelligenceHubProps) {
   const [activities, setActivities] = useState<StockTransaction[]>([]);
   const [analysis, setAnalysis] = useState<InventorySummary | null>(null);
   const [isActivityLoading, setIsActivityLoading] = useState(true);
@@ -34,7 +35,6 @@ export function IntelligenceHub({ tenantId, getAuthToken, isPro }: IntelligenceH
         const data = await res.json();
         setActivities(data || []);
       } else {
-        console.error('Failed to fetch activities:', res.status);
         setActivities([]);
       }
     } catch (e) {
@@ -55,15 +55,24 @@ export function IntelligenceHub({ tenantId, getAuthToken, isPro }: IntelligenceH
     try {
       const token = await getAuthToken();
       const aiRes = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/v1/forecast/summary`, {
-        headers: { 'Authorization': `Bearer ${token}`, 'X-Tenant-ID': tenantId }
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'X-Tenant-ID': tenantId,
+          'X-Tenant-Plan': plan || 'free'
+        }
       });
-      if (aiRes.ok) setAnalysis(await aiRes.json());
+
+      if (aiRes.status === 429) {
+        alert("Daily AI analysis limit reached. Upgrade for more tokens.");
+      } else if (aiRes.ok) {
+        setAnalysis(await aiRes.json());
+      }
     } catch (e) {
       console.error('AI Error:', e);
     } finally {
       setIsAiLoading(false);
     }
-  }, [tenantId, getAuthToken, isPro, isAiLoading]);
+  }, [tenantId, getAuthToken, isPro, isAiLoading, plan]);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
@@ -197,9 +206,14 @@ export function IntelligenceHub({ tenantId, getAuthToken, isPro }: IntelligenceH
               </p>
               <button
                 onClick={runAnalysis}
-                className="w-full py-4 bg-white text-slate-900 rounded-2xl font-black text-xs uppercase tracking-[0.2em] hover:bg-blue-50 transition-all shadow-xl shadow-white/5"
+                disabled={!isPro}
+                className={`w-full py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all shadow-xl ${
+                  isPro
+                  ? 'bg-white text-slate-900 hover:bg-blue-50'
+                  : 'bg-white/10 text-white/40 cursor-not-allowed'
+                }`}
               >
-                Launch Analysis
+                {isPro ? "Launch Analysis" : "Pro Only Feature"}
               </button>
             </div>
           )}

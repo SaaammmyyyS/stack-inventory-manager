@@ -19,9 +19,10 @@ public class ReportController {
     @PreAuthorize("hasAnyRole('ADMIN', 'MEMBER')")
     public ResponseEntity<byte[]> downloadWeeklyReport(
             @RequestHeader("X-Tenant-ID") String tenantId,
+            @RequestHeader(value = "X-Tenant-Plan", defaultValue = "free") String plan,
             @RequestParam(defaultValue = "Workspace") String orgName) {
 
-        byte[] pdfContent = reportService.generateWeeklyReport(tenantId, orgName);
+        byte[] pdfContent = reportService.generateWeeklyReport(tenantId, orgName, plan);
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"inventory_report.pdf\"")

@@ -14,6 +14,9 @@ import java.util.UUID;
 
 public interface InventoryRepository extends JpaRepository<InventoryItem, UUID> {
 
+        @Query(value = "SELECT count(*) FROM inventory WHERE tenant_id = :tenantId AND deleted = 'N'", nativeQuery = true)
+        long countByTenantIdAndDeletedFalse(@Param("tenantId") String tenantId);
+
         long countByTenantId(String tenantId);
 
         List<InventoryItem> findAllByTenantId(String tenantId);

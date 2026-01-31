@@ -9,14 +9,20 @@ import { IntelligenceHub } from "@/components/dashboard/IntelligenceHub";
 import { ForecastView } from "@/components/dashboard/ForecastView";
 
 export default function Dashboard() {
-  const { items, trashedItems, isLoading, fetchItems, fetchTrash, getAuthToken } = useInventory();
+  const { items, trashedItems, isLoading, fetchItems, fetchTrash, getAuthToken, currentPlan } = useInventory();
   const { organization, isLoaded } = useOrganization();
   const { has } = useAuth();
   const [isDownloading, setIsDownloading] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'forecast'>('overview');
 
   const tenantId = organization?.id || "personal";
-  const isPro = has?.({ plan: 'test' }) || false;
+
+  /**
+   * PLAN LOGIC
+   * We still calculate isPro for UI visibility, but we no longer
+   * send the plan header to the backend to avoid CORS/JWT extraction errors.
+   */
+  const isPro = currentPlan === 'pro' || currentPlan === 'test' || has?.({ plan: 'test' }) || false;
 
   useEffect(() => {
     if (isLoaded) {
@@ -44,12 +50,25 @@ export default function Dashboard() {
     try {
       const token = await getAuthToken();
       const orgName = encodeURIComponent(organization?.name || "Personal Workspace");
+
+      // Removed X-Tenant-Plan to prevent CORS issues and align with backend default logic
       const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/reports/weekly?orgName=${orgName}`, {
-        headers: { 'Authorization': `Bearer ${token}`, 'X-Tenant-ID': tenantId }
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'X-Tenant-ID': tenantId
+          // TODO: Add 'X-Tenant-Plan': currentPlan back once JWT extraction is stable on backend
+        }
       });
+
       if (!response.ok) {
-        throw new Error(`Report download failed: ${response.status}`);
+        if (response.status === 429) {
+          alert("Daily report limit reached. Please try again tomorrow.");
+        } else {
+          throw new Error(`Report download failed: ${response.status}`);
+        }
+        return;
       }
+
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -58,7 +77,10 @@ export default function Dashboard() {
       document.body.appendChild(link);
       link.click();
       link.remove();
-      window.URL.revokeObjectURL(url);      console.error(error);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Download error:", error);
+      alert("Failed to download report. Please check your connection.");
     } finally {
       setIsDownloading(false);
     }
@@ -126,11 +148,11 @@ export default function Dashboard() {
             <StatCard title="Critical Stock" value={stats.lowStock} icon={<AlertCircle size={22} />} color={stats.lowStock > 0 ? "orange" : "muted"} alert={stats.lowStock > 0} />
           </div>
 
-          <IntelligenceHub tenantId={tenantId} getAuthToken={getAuthToken} isPro={isPro} />
+          <IntelligenceHub tenantId={tenantId} getAuthToken={getAuthToken} isPro={isPro} plan={currentPlan} />
         </div>
       ) : (
         <div className="animate-in fade-in slide-in-from-right-4 duration-500">
-          <ForecastView tenantId={tenantId} getAuthToken={getAuthToken} isPro={isPro} />
+          <ForecastView tenantId={tenantId} getAuthToken={getAuthToken} isPro={isPro} plan={currentPlan} />
         </div>
       )}
     </div>

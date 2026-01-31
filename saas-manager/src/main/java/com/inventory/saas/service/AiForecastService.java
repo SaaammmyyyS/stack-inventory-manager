@@ -1,10 +1,12 @@
 package com.inventory.saas.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.inventory.saas.dto.InventorySummaryAnalysisDTO;
 import com.inventory.saas.dto.StockAIInsightDTO;
 import com.inventory.saas.model.StockTransaction;
 import com.inventory.saas.repository.TransactionRepository;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.ollama.api.OllamaOptions;
 import org.springframework.stereotype.Service;
 import org.slf4j.Logger;
@@ -22,19 +24,26 @@ public class AiForecastService {
     private static final Logger logger = LoggerFactory.getLogger(AiForecastService.class);
     private final ChatClient chatClient;
     private final TransactionRepository transactionRepository;
+    private final BillingGuard billingGuard;
+    private final ObjectMapper objectMapper;
 
-    public AiForecastService(ChatClient.Builder chatClientBuilder, TransactionRepository transactionRepository) {
+    public AiForecastService(ChatClient.Builder chatClientBuilder,
+                             TransactionRepository transactionRepository,
+                             BillingGuard billingGuard,
+                             ObjectMapper objectMapper) {
         this.chatClient = chatClientBuilder
                 .defaultSystem("You are a Senior Supply Chain Consultant. " +
                         "Analyze the transaction ledger and provide a professional executive report. " +
                         "Focus on Inventory Health and Threshold Optimization. " +
                         "1. status: 'Healthy', 'Warning', or 'Critical'. " +
                         "2. summary: 2-3 sentences of meaningful business insight. " +
-                        "3. urgentActions: 3 specific recommendations (e.g., 'Increase threshold for high-velocity items'). " +
+                        "3. urgentActions: 3 specific recommendations. " +
                         "4. healthScore: Integer 0-100. " +
                         "Output ONLY valid JSON.")
                 .build();
         this.transactionRepository = transactionRepository;
+        this.billingGuard = billingGuard;
+        this.objectMapper = objectMapper;
     }
 
     public List<StockAIInsightDTO> calculateAllItemForecasts(String tenantId) {
@@ -62,16 +71,7 @@ public class AiForecastService {
             int suggestedThreshold = (int) Math.ceil(dailyBurnRate * 14);
             if (suggestedThreshold < 5) suggestedThreshold = 5;
 
-            int currentThreshold = item.getMinThreshold() != null ? item.getMinThreshold() : 0;
-            String thresholdReason = "Optimal threshold is " + suggestedThreshold + " units (14-day buffer).";
-
-            if (currentThreshold < suggestedThreshold) {
-                thresholdReason = "⚠️ Threshold too low! Increase to " + suggestedThreshold + " to avoid stockouts.";
-            }
-
-            String status = "STABLE";
-            if (daysRemaining < 7) status = "CRITICAL";
-            else if (daysRemaining < 20) status = "WARNING";
+            String status = daysRemaining < 7 ? "CRITICAL" : (daysRemaining < 20 ? "WARNING" : "STABLE");
 
             return new StockAIInsightDTO(
                     name,
@@ -81,40 +81,44 @@ public class AiForecastService {
                     LocalDate.now().plusDays(daysRemaining),
                     status,
                     suggestedThreshold,
-                    thresholdReason
+                    "Calculated based on 30-day velocity."
             );
         }).collect(Collectors.toList());
     }
 
-    public InventorySummaryAnalysisDTO getGlobalAnalysis(String tenantId) {
+    public InventorySummaryAnalysisDTO getGlobalAnalysis(String tenantId, String plan) {
+        billingGuard.validateTokenBudget(tenantId, plan);
+
         LocalDateTime sixtyDaysAgo = LocalDateTime.now().minusDays(60);
         List<StockTransaction> history = transactionRepository.findAiAnalysisData(tenantId, sixtyDaysAgo);
 
-        if (history.isEmpty()) {
-            return createEmptyResponse("No transaction history found to analyze.");
-        }
+        if (history.isEmpty()) return createEmptyResponse("No history found.");
 
         String dataFeed = history.stream()
                 .filter(t -> t.getInventoryItem() != null)
-                .map(t -> String.format("- %s: %s (%d units). Current Threshold: %d",
+                .map(t -> String.format("- %s: %s (%d units)",
                         t.getInventoryItem().getName(),
                         t.getType(),
-                        Math.abs(t.getQuantityChange()),
-                        t.getInventoryItem().getMinThreshold() != null
-                                ? t.getInventoryItem().getMinThreshold() : 0))
+                        Math.abs(t.getQuantityChange())))
                 .collect(Collectors.joining("\n"));
+
         try {
-            return chatClient.prompt()
-                    .user("Analyze velocity and suggest threshold adjustments:\n" + dataFeed)
-                    .options(OllamaOptions.builder()
-                            .format("json")
-                            .temperature(0.7)
-                            .build())
+            ChatResponse response = chatClient.prompt()
+                    .user("Analyze velocity:\n" + dataFeed)
+                    .options(OllamaOptions.builder().format("json").temperature(0.7).build())
                     .call()
-                    .entity(InventorySummaryAnalysisDTO.class);
+                    .chatResponse();
+
+            if (response != null && response.getMetadata().getUsage() != null) {
+                billingGuard.updateTokenUsage(tenantId, response.getMetadata().getUsage().getTotalTokens());
+            }
+
+            String jsonOutput = response.getResult().getOutput().getContent();
+            return objectMapper.readValue(jsonOutput, InventorySummaryAnalysisDTO.class);
+
         } catch (Exception e) {
             logger.error("AI Error: {}", e.getMessage());
-            return createEmptyResponse("AI is currently unavailable: " + e.getLocalizedMessage());
+            return createEmptyResponse("AI unavailable: " + e.getLocalizedMessage());
         }
     }
 

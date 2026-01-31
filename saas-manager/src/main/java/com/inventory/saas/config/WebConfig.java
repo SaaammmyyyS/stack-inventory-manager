@@ -17,9 +17,16 @@ public class WebConfig implements WebMvcConfigurer {
     @Autowired
     private TenantInterceptor tenantInterceptor;
 
+    @Autowired
+    private RateLimitInterceptor rateLimitInterceptor;
+
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
+
         registry.addInterceptor(tenantInterceptor);
+
+        registry.addInterceptor(rateLimitInterceptor)
+                .addPathPatterns("/api/**");
     }
 
     @Override
@@ -33,13 +40,13 @@ public class WebConfig implements WebMvcConfigurer {
                         "X-Tenant-ID",
                         "X-Performed-By"
                 )
-                .exposedHeaders("X-Performed-By")
+                .exposedHeaders("X-Performed-By", "Retry-After")
                 .allowCredentials(true)
                 .maxAge(3600);
     }
 
     @Bean
-    public Map<String, Object> hibernateVendorProperties(TenantIdentifierResolver tenantResolver) {
+    public Map<String, Object> hibernateVendorProperties(org.hibernate.context.spi.CurrentTenantIdentifierResolver tenantResolver) {
         Map<String, Object> props = new HashMap<>();
         props.put(AvailableSettings.MULTI_TENANT_IDENTIFIER_RESOLVER, tenantResolver);
         return props;
