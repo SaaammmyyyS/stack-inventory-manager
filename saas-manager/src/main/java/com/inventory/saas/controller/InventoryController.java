@@ -79,11 +79,6 @@ public class InventoryController {
             @RequestHeader("X-Tenant-ID") String tenantId,
             @RequestBody InventoryItemDTO dto) {
 
-        /**
-         * TODO: [2026-01-31] JWT extraction was not working.
-         * For now, we are defaulting to "free".
-         * Re-enable jwt.getClaimAsString("org_plan") later.
-         */
         String plan = "free";
         billingGuard.validateSkuLimit(tenantId, plan);
 

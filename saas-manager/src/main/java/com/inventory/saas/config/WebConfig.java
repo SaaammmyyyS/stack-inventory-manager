@@ -22,10 +22,6 @@ public class WebConfig implements WebMvcConfigurer {
     @Autowired
     private RateLimitInterceptor rateLimitInterceptor;
 
-    /**
-     * Configures RestTemplate to use Java's modern HttpClient.
-     * This is required to support the HTTP PATCH method.
-     */
     @Bean
     public RestTemplate restTemplate() {
         return new RestTemplate(new JdkClientHttpRequestFactory());
@@ -33,10 +29,12 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
-        registry.addInterceptor(tenantInterceptor);
+        registry.addInterceptor(tenantInterceptor)
+                .excludePathPatterns("/api/webhooks/**");
 
         registry.addInterceptor(rateLimitInterceptor)
-                .addPathPatterns("/api/**");
+                .addPathPatterns("/api/**")
+                .excludePathPatterns("/api/webhooks/**");
     }
 
     @Override
@@ -44,15 +42,19 @@ public class WebConfig implements WebMvcConfigurer {
         registry.addMapping("/**")
                 .allowedOrigins(
                         "http://localhost:5173",
-                        "https://dmtc2sumyu.ap-southeast-1.awsapprunner.com"
+                        "https://dmtc2sumyu.ap-southeast-1.awsapprunner.com",
+                        "https://pruinose-camron-aerobically.ngrok-free.dev" // Added your Ngrok URL
                 )
-                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH")
                 .allowedHeaders(
                         "Authorization",
                         "Content-Type",
                         "X-Tenant-ID",
                         "X-Performed-By",
-                        "X-Organization-Plan"
+                        "X-Organization-Plan",
+                        "svix-id",
+                        "svix-signature",
+                        "svix-timestamp"
                 )
                 .exposedHeaders("X-Performed-By", "Retry-After")
                 .allowCredentials(true)

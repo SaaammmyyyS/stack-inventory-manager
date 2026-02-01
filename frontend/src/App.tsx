@@ -5,49 +5,54 @@ import InventoryView from "./pages/InventoryView";
 import Dashboard from "./pages/Dashboard";
 import BillingView from "./pages/BillingView";
 import { Package, Loader2 } from 'lucide-react';
+import { Toaster } from 'sonner';
 
 export default function App() {
   const { isLoaded: isUserLoaded } = useUser();
   const { isLoaded: isOrgLoaded } = useOrganization();
 
-  if (!isUserLoaded || !isOrgLoaded) return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50">
-      <div className="flex flex-col items-center gap-4">
-        <div className="relative">
-          <Loader2 className="animate-spin text-blue-600" size={40} />
-          <Package className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-blue-600" size={16} />
-        </div>
-        <p className="text-slate-400 font-bold text-[10px] uppercase tracking-[0.3em]">Syncing Session</p>
-      </div>
-    </div>
-  );
-
   return (
     <>
-      <SignedOut>
-        <LoginHero />
-      </SignedOut>
+      <Toaster position="top-right" richColors closeButton />
 
-      <SignedIn>
-        <DashboardLayout>
-          <Routes>
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+      {(!isUserLoaded || !isOrgLoaded) ? (
+        <div className="min-h-screen flex items-center justify-center bg-slate-50">
+          <div className="flex flex-col items-center gap-4">
+            <div className="relative">
+              <Loader2 className="animate-spin text-blue-600" size={40} />
+              <Package className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-blue-600" size={16} />
+            </div>
+            <p className="text-slate-400 font-bold text-[10px] uppercase tracking-[0.3em]">Syncing Session</p>
+          </div>
+        </div>
+      ) : (
+        <>
+          <SignedOut>
+            <LoginHero />
+          </SignedOut>
 
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/inventory" element={<InventoryView />} />
-            <Route path="/billing" element={<BillingView />} />
+          <SignedIn>
+            <DashboardLayout>
+              <Routes>
+                <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
-            <Route path="/ai-tools" element={
-              <PlaceholderModule title="AI Tools" description="Module coming soon..." />
-            } />
-            <Route path="/settings" element={
-              <PlaceholderModule title="Settings" description="Module coming soon..." />
-            } />
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/inventory" element={<InventoryView />} />
+                <Route path="/billing" element={<BillingView />} />
 
-            <Route path="*" element={<Navigate to="/dashboard" replace />} />
-          </Routes>
-        </DashboardLayout>
-      </SignedIn>
+                <Route path="/ai-tools" element={
+                  <PlaceholderModule title="AI Tools" description="Module coming soon..." />
+                } />
+                <Route path="/settings" element={
+                  <PlaceholderModule title="Settings" description="Module coming soon..." />
+                } />
+
+                <Route path="*" element={<Navigate to="/dashboard" replace />} />
+              </Routes>
+            </DashboardLayout>
+          </SignedIn>
+        </>
+      )}
     </>
   );
 }

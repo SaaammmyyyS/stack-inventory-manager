@@ -31,11 +31,6 @@ export default function InventoryView() {
   const [page, setPage] = useState(1);
   const limit = 10;
 
-  /**
-   * PLAN LOGIC
-   * TODO: Currently, 'currentPlan' defaults to 'free' in the hook because
-   * JWT extraction is disabled. Update this once Clerk JWT claims are working.
-   */
   const isFreePlan = h.currentPlan === 'free';
   const isLimitReached = isFreePlan && h.totalCount >= 50;
 

@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useInventory } from './useInventory';
 import { StockTransaction, InventoryItem } from './useInventory';
+import { toast } from 'sonner';
 
 export function useInventoryHandlers() {
   const inventory = useInventory();
@@ -46,7 +47,10 @@ export function useInventoryHandlers() {
     const amount = parseInt(amountStr);
     const reason = formData.get("reason") as string;
 
-    if (isNaN(amount)) return;
+    if (isNaN(amount)) {
+      toast.error("Please enter a valid number");
+      return;
+    }
 
     const success = await inventory.recordMovement(
       adjustItem.id,
@@ -75,6 +79,14 @@ export function useInventoryHandlers() {
     }
   };
 
+  const syncPlan = useCallback(async () => {
+    toast.promise(inventory.refreshPlan(), {
+      loading: 'Syncing your subscription...',
+      success: 'Plan updated successfully!',
+      error: 'Sync failed. Please try again.',
+    });
+  }, [inventory]);
+
   return {
     ...inventory,
     currentView,
@@ -95,6 +107,7 @@ export function useInventoryHandlers() {
     handleAddProduct,
     handleUpdateProduct,
     handleStockAdjustment,
-    handleOpenHistory
+    handleOpenHistory,
+    syncPlan
   };
 }

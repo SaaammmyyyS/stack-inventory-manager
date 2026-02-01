@@ -1,5 +1,6 @@
 import { useState, useCallback, useTransition, useMemo } from 'react';
 import { useAuth, useOrganization, useUser } from "@clerk/clerk-react";
+import { toast } from "sonner";
 
 export interface InventoryItem {
   id: string;
@@ -50,8 +51,9 @@ export function useInventory() {
   const tenantId = useMemo(() => organization?.id || user?.id || "personal", [organization, user]);
 
   const currentPlan = useMemo(() => {
-    return (organization?.publicMetadata?.plan as string) || 'free';
-  }, [organization]);
+    const plan = organization?.publicMetadata?.plan as string;
+    return plan?.toLowerCase() || 'free';
+  }, [organization?.publicMetadata?.plan]);
 
   const isAdmin = useMemo(() => {
     const isOrgAdmin = membership?.role === "org:admin" || membership?.role === "admin";
@@ -59,13 +61,13 @@ export function useInventory() {
     return isOrgAdmin || isMetadataAdmin;
   }, [membership, user]);
 
-  const getAuthToken = useCallback(() =>
-    getToken({ template: "spring-boot-backend" }),
+  const getAuthToken = useCallback((forceRefresh = false) =>
+    getToken({
+      template: "spring-boot-backend",
+      skipCache: forceRefresh
+    }),
   [getToken]);
 
-  /**
-   * Helper to perform authorized fetches with our custom "Clean" headers
-   */
   const fetchWithAuth = useCallback(async (url: string, options: RequestInit = {}) => {
     const token = await getAuthToken();
     const headers = {
@@ -134,9 +136,11 @@ export function useInventory() {
               throw new Error(ed.message || "Failed to add product");
           }
           await fetchItems();
+          toast.success("Item added successfully");
           resolve(true);
         } catch (err) {
           setError(err instanceof Error ? err.message : "Failed to add product");
+          toast.error(err instanceof Error ? err.message : "Failed to add item");
           resolve(false);
         }
       });
@@ -157,6 +161,7 @@ export function useInventory() {
             throw new Error(ed.message || "Failed to update product");
           }
           await fetchItems();
+          toast.success("Item updated");
           resolve(true);
         } catch (err) {
           setError(err instanceof Error ? err.message : "Failed to update product");
@@ -175,6 +180,7 @@ export function useInventory() {
       });
       setItems(prev => prev.filter(item => item.id !== id));
       fetchTrash();
+      toast.info("Item moved to trash");
     } catch (err) {
       setError("Delete failed.");
     }
@@ -185,6 +191,7 @@ export function useInventory() {
       await fetchWithAuth(`${API_BASE_URL}/restore/${id}`, { method: 'PUT' });
       fetchItems();
       fetchTrash();
+      toast.success("Item restored");
     } catch (err) {
       setError("Restore failed");
     }
@@ -194,6 +201,7 @@ export function useInventory() {
     try {
       await fetchWithAuth(`${API_BASE_URL}/permanent/${id}`, { method: 'DELETE' });
       setTrashedItems(prev => prev.filter(item => item.id !== id));
+      toast.error("Item permanently deleted");
     } catch (err) {
       setError("Permanent delete failed");
     }
@@ -223,6 +231,7 @@ export function useInventory() {
       }
 
       await fetchItems();
+      toast.success(`Stock ${type === 'STOCK_IN' ? 'added' : 'removed'}`);
       return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Adjustment error");
@@ -252,11 +261,36 @@ export function useInventory() {
     }
   }, [fetchWithAuth, isOrgLoaded]);
 
+  const refreshPlan = useCallback(async () => {
+    if (organization) {
+      try {
+        const oldPlan = organization.publicMetadata.plan;
+
+        await organization.reload();
+        await getAuthToken(true);
+
+        const newPlan = organization.publicMetadata.plan;
+
+        if (oldPlan !== newPlan) {
+          toast.success(`Plan updated to ${newPlan || 'Free'}!`, {
+            description: "Your new limits have been applied.",
+          });
+          fetchItems();
+        } else {
+          toast.info("Plan status is already up to date.");
+        }
+      } catch (err) {
+        console.error("Plan sync failed:", err);
+        toast.error("Failed to sync subscription status.");
+      }
+    }
+  }, [organization, getAuthToken, fetchItems]);
+
   return {
     items, totalCount, trashedItems, recentActivity,
     isLoading, error, setError, isPending, isAdmin, currentPlan,
     getAuthToken, addItem, updateItem, deleteItem, restoreItem,
     permanentlyDelete, recordMovement, fetchTrash,
-    fetchItems, fetchHistory, fetchRecentActivity
+    fetchItems, fetchHistory, fetchRecentActivity, refreshPlan
   };
 }

@@ -17,11 +17,6 @@ export default function Dashboard() {
 
   const tenantId = organization?.id || "personal";
 
-  /**
-   * PLAN LOGIC
-   * We still calculate isPro for UI visibility, but we no longer
-   * send the plan header to the backend to avoid CORS/JWT extraction errors.
-   */
   const isPro = currentPlan === 'pro' || currentPlan === 'test' || has?.({ plan: 'test' }) || false;
 
   useEffect(() => {

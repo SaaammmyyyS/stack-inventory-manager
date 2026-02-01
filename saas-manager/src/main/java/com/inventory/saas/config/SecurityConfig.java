@@ -71,18 +71,22 @@ public class SecurityConfig {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(List.of(
                 "http://localhost:5173",
-                "https://dmtc2sumyu.ap-southeast-1.awsapprunner.com"
+                "https://dmtc2sumyu.ap-southeast-1.awsapprunner.com",
+                "https://pruinose-camron-aerobically.ngrok-free.dev" // Added Ngrok origin
         ));
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         config.setAllowedHeaders(List.of(
                 "Authorization",
                 "Content-Type",
                 "X-Tenant-ID",
                 "X-Performed-By",
                 "X-Organization-Plan",
-                "Cache-Control"
+                "Cache-Control",
+                "svix-id",          // Added Svix headers for webhooks
+                "svix-signature",
+                "svix-timestamp"
         ));
-        config.setExposedHeaders(List.of("Content-Disposition", "X-Performed-By"));
+        config.setExposedHeaders(List.of("Content-Disposition", "X-Performed-By", "Retry-After"));
         config.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
