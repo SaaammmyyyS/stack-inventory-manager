@@ -30,6 +30,7 @@ public class WebConfig implements WebMvcConfigurer {
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(tenantInterceptor)
+                .addPathPatterns("/api/**")
                 .excludePathPatterns("/api/webhooks/**");
 
         registry.addInterceptor(rateLimitInterceptor)
@@ -43,7 +44,7 @@ public class WebConfig implements WebMvcConfigurer {
                 .allowedOrigins(
                         "http://localhost:5173",
                         "https://dmtc2sumyu.ap-southeast-1.awsapprunner.com",
-                        "https://pruinose-camron-aerobically.ngrok-free.dev" // Added your Ngrok URL
+                        "https://pruinose-camron-aerobically.ngrok-free.dev"
                 )
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH")
                 .allowedHeaders(
@@ -56,7 +57,7 @@ public class WebConfig implements WebMvcConfigurer {
                         "svix-signature",
                         "svix-timestamp"
                 )
-                .exposedHeaders("X-Performed-By", "Retry-After")
+                .exposedHeaders("X-Performed-By", "Retry-After", "X-Organization-Plan")
                 .allowCredentials(true)
                 .maxAge(3600);
     }

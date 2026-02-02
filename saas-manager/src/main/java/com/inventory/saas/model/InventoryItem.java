@@ -11,7 +11,9 @@ import java.math.BigDecimal;
 
 @Data
 @Entity
-@Table(name = "inventory")
+@Table(name = "inventory", uniqueConstraints = {
+        @UniqueConstraint(name = "uk_tenant_sku", columnNames = {"tenant_id", "sku"})
+})
 @SoftDelete(columnName = "deleted", converter = YesNoConverter.class)
 public class InventoryItem {
 
@@ -26,7 +28,7 @@ public class InventoryItem {
     @Column(nullable = false)
     private String name;
 
-    @Column(unique = true)
+    @Column(nullable = true)
     private String sku;
 
     private String category;

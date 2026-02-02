@@ -25,12 +25,13 @@ public class BillingGuard {
         if (normalizedPlan.contains("pro") || normalizedPlan.contains("test")) {
             return new PlanLimits(1000, 10000, 50, 500000);
         }
+
         return new PlanLimits(60, 50, 1, 15000);
     }
 
     public void validateSkuLimit(String tenantId, String plan) {
         if (inventoryRepository.countByTenantId(tenantId) >= getLimits(plan).skuLimit()) {
-            throw new ResponseStatusException(HttpStatus.PAYMENT_REQUIRED, "SKU Limit reached.");
+            throw new ResponseStatusException(HttpStatus.PAYMENT_REQUIRED, "SKU Limit reached for your current plan.");
         }
     }
 

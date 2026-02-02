@@ -41,7 +41,7 @@ public class InventoryService {
         if (item.getSku() != null && !item.getSku().trim().isEmpty()) {
             boolean exists = repository.existsBySkuAndTenantId(item.getSku(), item.getTenantId());
             if (exists) {
-                throw new RuntimeException("Product with SKU '" + item.getSku() + "' already exists.");
+                throw new RuntimeException("Product with SKU '" + item.getSku() + "' already exists in your workspace.");
             }
         }
         return repository.save(item);
@@ -50,6 +50,12 @@ public class InventoryService {
     @Transactional
     public InventoryItem updateItem(UUID id, InventoryItem details) {
         return repository.findById(id).map(item -> {
+            if (details.getSku() != null && !details.getSku().equalsIgnoreCase(item.getSku())) {
+                boolean exists = repository.existsBySkuAndTenantId(details.getSku(), item.getTenantId());
+                if (exists) {
+                    throw new RuntimeException("SKU '" + details.getSku() + "' is already in use in your workspace.");
+                }
+            }
             item.setName(details.getName());
             item.setSku(details.getSku());
             item.setCategory(details.getCategory());
@@ -62,7 +68,7 @@ public class InventoryService {
     @Transactional
     public StockTransaction recordMovement(UUID id, Integer amount, String type, String reason, String performedBy) {
         InventoryItem item = repository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Inventory item not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Inventory item not found"));
 
         int adjustment = type.equalsIgnoreCase("STOCK_OUT") ? -Math.abs(amount) : Math.abs(amount);
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   History, ArrowUpRight, ArrowDownLeft,
   Sparkles, Loader2, Play, TrendingUp, CheckCircle2, Zap,
@@ -6,73 +6,61 @@ import {
 } from "lucide-react";
 import { InventorySummary, StockTransaction } from "../../types/inventory";
 import { StockVelocityChart } from "./StockVelocityChart";
+import { useInventoryApi } from "../../lib/api";
 
 interface IntelligenceHubProps {
   tenantId: string;
-  getAuthToken: () => Promise<string>;
   isPro: boolean;
   plan?: string;
 }
 
-export function IntelligenceHub({ tenantId, getAuthToken, isPro, plan }: IntelligenceHubProps) {
+export function IntelligenceHub({ tenantId, isPro, plan }: IntelligenceHubProps) {
+  const { fetchWithTenant } = useInventoryApi();
   const [activities, setActivities] = useState<StockTransaction[]>([]);
   const [analysis, setAnalysis] = useState<InventorySummary | null>(null);
   const [isActivityLoading, setIsActivityLoading] = useState(true);
   const [isAiLoading, setIsAiLoading] = useState(false);
 
+  const hasFetched = useRef(false);
+
   const loadActivities = useCallback(async () => {
     setIsActivityLoading(true);
     try {
-      const token = await getAuthToken();
-      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/transactions/recent`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'X-Tenant-ID': tenantId
-        }
-      });
-
+      const res = await fetchWithTenant(`/api/transactions/recent`);
       if (res.ok) {
         const data = await res.json();
         setActivities(data || []);
-      } else {
-        setActivities([]);
       }
     } catch (e) {
       console.error('Fetch error:', e);
-      setActivities([]);
     } finally {
       setIsActivityLoading(false);
     }
-  }, [tenantId, getAuthToken]);
+  }, [fetchWithTenant]);
 
   useEffect(() => {
-    loadActivities();
+    if (!hasFetched.current) {
+      loadActivities();
+      hasFetched.current = true;
+    }
   }, [loadActivities]);
 
   const runAnalysis = useCallback(async () => {
     if (!isPro || isAiLoading) return;
+
     setIsAiLoading(true);
     try {
-      const token = await getAuthToken();
-      const aiRes = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/v1/forecast/summary`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'X-Tenant-ID': tenantId,
-          'X-Tenant-Plan': plan || 'free'
-        }
-      });
-
-      if (aiRes.status === 429) {
-        alert("Daily AI analysis limit reached. Upgrade for more tokens.");
-      } else if (aiRes.ok) {
-        setAnalysis(await aiRes.json());
+      const aiRes = await fetchWithTenant(`/api/v1/forecast/summary`);
+      if (aiRes.ok) {
+        const data = await aiRes.json();
+        setAnalysis(data);
       }
     } catch (e) {
       console.error('AI Error:', e);
     } finally {
       setIsAiLoading(false);
     }
-  }, [tenantId, getAuthToken, isPro, isAiLoading, plan]);
+  }, [fetchWithTenant, isPro, isAiLoading]);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">

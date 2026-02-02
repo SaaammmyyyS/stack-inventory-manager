@@ -72,7 +72,7 @@ public class SecurityConfig {
         config.setAllowedOrigins(List.of(
                 "http://localhost:5173",
                 "https://dmtc2sumyu.ap-southeast-1.awsapprunner.com",
-                "https://pruinose-camron-aerobically.ngrok-free.dev" // Added Ngrok origin
+                "https://pruinose-camron-aerobically.ngrok-free.dev"
         ));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         config.setAllowedHeaders(List.of(
@@ -82,7 +82,7 @@ public class SecurityConfig {
                 "X-Performed-By",
                 "X-Organization-Plan",
                 "Cache-Control",
-                "svix-id",          // Added Svix headers for webhooks
+                "svix-id",
                 "svix-signature",
                 "svix-timestamp"
         ));

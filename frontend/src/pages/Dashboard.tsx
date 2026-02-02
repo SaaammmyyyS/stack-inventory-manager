@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { useInventory } from "@/hooks/useInventory";
-import { useOrganization, useAuth } from "@clerk/clerk-react";
+import { useOrganization, useAuth, useUser } from "@clerk/clerk-react";
 import {
   Package, Activity, AlertCircle, Loader2, DollarSign,
   FileDown, Lock, LayoutDashboard, Sparkles
@@ -10,21 +10,26 @@ import { ForecastView } from "@/components/dashboard/ForecastView";
 
 export default function Dashboard() {
   const { items, trashedItems, isLoading, fetchItems, fetchTrash, getAuthToken, currentPlan } = useInventory();
-  const { organization, isLoaded } = useOrganization();
+  const { organization, isLoaded: isOrgLoaded } = useOrganization();
+  const { user, isLoaded: isUserLoaded } = useUser();
   const { has } = useAuth();
+
   const [isDownloading, setIsDownloading] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'forecast'>('overview');
+  const hasInitialFetched = useRef(false);
+  const tenantId = useMemo(() => organization?.id || user?.id || "personal", [organization?.id, user?.id]);
 
-  const tenantId = organization?.id || "personal";
-
-  const isPro = currentPlan === 'pro' || currentPlan === 'test' || has?.({ plan: 'test' }) || false;
+  const isPro = useMemo(() => {
+    return currentPlan === 'pro' || currentPlan === 'test' || has?.({ plan: 'test' }) || false;
+  }, [currentPlan, has]);
 
   useEffect(() => {
-    if (isLoaded) {
+    if (isOrgLoaded && isUserLoaded && !hasInitialFetched.current) {
       fetchItems({ page: 1, limit: 1000 });
       fetchTrash();
+      hasInitialFetched.current = true;
     }
-  }, [fetchItems, fetchTrash, isLoaded]);
+  }, [fetchItems, fetchTrash, isOrgLoaded, isUserLoaded]);
 
   const stats = useMemo(() => {
     const valuation = items.reduce((acc, item) => acc + ((item.quantity || 0) * (item.price || 0)), 0);
@@ -50,7 +55,6 @@ export default function Dashboard() {
         headers: {
           'Authorization': `Bearer ${token}`,
           'X-Tenant-ID': tenantId
-          // TODO: Add 'X-Tenant-Plan': currentPlan back once JWT extraction is stable on backend
         }
       });
 
@@ -80,7 +84,7 @@ export default function Dashboard() {
     }
   };
 
-  if (isLoading && items.length === 0) {
+  if ((isLoading && items.length === 0) || !isOrgLoaded) {
     return (
       <div className="h-[70vh] flex flex-col items-center justify-center">
         <Loader2 className="animate-spin text-primary" size={48} />
@@ -142,11 +146,11 @@ export default function Dashboard() {
             <StatCard title="Critical Stock" value={stats.lowStock} icon={<AlertCircle size={22} />} color={stats.lowStock > 0 ? "orange" : "muted"} alert={stats.lowStock > 0} />
           </div>
 
-          <IntelligenceHub tenantId={tenantId} getAuthToken={getAuthToken} isPro={isPro} plan={currentPlan} />
+          <IntelligenceHub tenantId={tenantId} isPro={isPro} plan={currentPlan} />
         </div>
       ) : (
         <div className="animate-in fade-in slide-in-from-right-4 duration-500">
-          <ForecastView tenantId={tenantId} getAuthToken={getAuthToken} isPro={isPro} plan={currentPlan} />
+          <ForecastView tenantId={tenantId} isPro={isPro} plan={currentPlan} />
         </div>
       )}
     </div>

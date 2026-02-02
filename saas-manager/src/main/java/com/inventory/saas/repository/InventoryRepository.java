@@ -14,14 +14,14 @@ import java.util.UUID;
 
 public interface InventoryRepository extends JpaRepository<InventoryItem, UUID> {
 
-        @Query(value = "SELECT count(*) FROM inventory WHERE tenant_id = :tenantId AND deleted = 'N'", nativeQuery = true)
-        long countByTenantIdAndDeletedFalse(@Param("tenantId") String tenantId);
-
-        long countByTenantId(String tenantId);
+        boolean existsBySkuAndTenantId(String sku, String tenantId);
 
         List<InventoryItem> findAllByTenantId(String tenantId);
 
-        boolean existsBySkuAndTenantId(String sku, String tenantId);
+        long countByTenantId(String tenantId);
+
+        @Query(value = "SELECT count(*) FROM inventory WHERE tenant_id = :tenantId AND deleted = 'N'", nativeQuery = true)
+        long countByTenantIdAndDeletedFalse(@Param("tenantId") String tenantId);
 
         @Query(value = "SELECT * FROM inventory WHERE tenant_id = :tenantId AND deleted = 'N' " +
                 "AND (:search IS NULL OR :search = '' OR name ILIKE CONCAT('%', :search, '%') OR sku ILIKE CONCAT('%', :search, '%')) " +

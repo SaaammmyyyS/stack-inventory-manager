@@ -48,7 +48,7 @@ export function useInventory() {
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  const tenantId = useMemo(() => organization?.id || user?.id || "personal", [organization, user]);
+  const tenantId = useMemo(() => organization?.id || user?.id || "personal", [organization?.id, user?.id]);
 
   const currentPlan = useMemo(() => {
     const plan = organization?.publicMetadata?.plan as string;
@@ -59,7 +59,7 @@ export function useInventory() {
     const isOrgAdmin = membership?.role === "org:admin" || membership?.role === "admin";
     const isMetadataAdmin = user?.publicMetadata?.role === 'admin';
     return isOrgAdmin || isMetadataAdmin;
-  }, [membership, user]);
+  }, [membership?.role, user?.publicMetadata?.role]);
 
   const getAuthToken = useCallback((forceRefresh = false) =>
     getToken({
@@ -184,7 +184,7 @@ export function useInventory() {
     } catch (err) {
       setError("Delete failed.");
     }
-  }, [fetchWithAuth, user, fetchTrash]);
+  }, [fetchWithAuth, user?.fullName, fetchTrash]);
 
   const restoreItem = useCallback(async (id: string) => {
     try {
@@ -237,7 +237,7 @@ export function useInventory() {
       setError(err instanceof Error ? err.message : "Adjustment error");
       return false;
     }
-  }, [fetchWithAuth, user, fetchItems]);
+  }, [fetchWithAuth, user?.fullName, user?.primaryEmailAddress?.emailAddress, fetchItems]);
 
   const fetchHistory = useCallback(async (itemId: string): Promise<StockTransaction[]> => {
     if (!itemId) return [];
@@ -265,23 +265,18 @@ export function useInventory() {
     if (organization) {
       try {
         const oldPlan = organization.publicMetadata.plan;
-
         await organization.reload();
         await getAuthToken(true);
-
         const newPlan = organization.publicMetadata.plan;
 
         if (oldPlan !== newPlan) {
-          toast.success(`Plan updated to ${newPlan || 'Free'}!`, {
-            description: "Your new limits have been applied.",
-          });
+          toast.success(`Plan updated to ${newPlan || 'Free'}!`);
           fetchItems();
         } else {
           toast.info("Plan status is already up to date.");
         }
       } catch (err) {
         console.error("Plan sync failed:", err);
-        toast.error("Failed to sync subscription status.");
       }
     }
   }, [organization, getAuthToken, fetchItems]);
@@ -291,6 +286,7 @@ export function useInventory() {
     isLoading, error, setError, isPending, isAdmin, currentPlan,
     getAuthToken, addItem, updateItem, deleteItem, restoreItem,
     permanentlyDelete, recordMovement, fetchTrash,
-    fetchItems, fetchHistory, fetchRecentActivity, refreshPlan
+    fetchItems, fetchHistory, fetchRecentActivity, refreshPlan,
+    fetchWithTenant: fetchWithAuth
   };
 }

@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useInventory } from './useInventory';
-import { StockTransaction, InventoryItem } from './useInventory';
+import type { StockTransaction, InventoryItem } from './useInventory';
 import { toast } from 'sonner';
 
 export function useInventoryHandlers() {
@@ -79,13 +79,14 @@ export function useInventoryHandlers() {
     }
   };
 
+  const { refreshPlan } = inventory;
   const syncPlan = useCallback(async () => {
-    toast.promise(inventory.refreshPlan(), {
+    toast.promise(refreshPlan(), {
       loading: 'Syncing your subscription...',
       success: 'Plan updated successfully!',
       error: 'Sync failed. Please try again.',
     });
-  }, [inventory]);
+  }, [refreshPlan]);
 
   return {
     ...inventory,
