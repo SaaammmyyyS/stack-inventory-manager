@@ -50,7 +50,15 @@ export function IntelligenceHub({ tenantId, isPro, plan }: IntelligenceHubProps)
 
     setIsAiLoading(true);
     try {
-      const aiRes = await fetchWithTenant(`/api/v1/forecast/summary`);
+      const token = await (window as any).Clerk.session.getToken();
+      const aiRes = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/v1/forecast/summary`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'X-Tenant-ID': tenantId,
+          'X-Organization-Plan': plan || 'free'
+        }
+      });
+
       if (aiRes.ok) {
         const data = await aiRes.json();
         setAnalysis(data);
@@ -60,7 +68,7 @@ export function IntelligenceHub({ tenantId, isPro, plan }: IntelligenceHubProps)
     } finally {
       setIsAiLoading(false);
     }
-  }, [fetchWithTenant, isPro, isAiLoading]);
+  }, [tenantId, isPro, isAiLoading, plan]);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
@@ -172,7 +180,7 @@ export function IntelligenceHub({ tenantId, isPro, plan }: IntelligenceHubProps)
                   <Zap size={12} /> Critical Actions
                 </h5>
                 <div className="space-y-3">
-                  {analysis.urgentActions.map((action, i) => (
+                  {(analysis.urgentActions ?? []).map((action, i) => (
                     <div key={i} className="group flex items-start gap-4 p-4 bg-white/5 border border-white/5 rounded-2xl hover:bg-white/10 transition-all cursor-default">
                       <div className="mt-1 bg-blue-500/20 p-1 rounded-md">
                         <CheckCircle2 size={12} className="text-blue-400" />
@@ -180,6 +188,9 @@ export function IntelligenceHub({ tenantId, isPro, plan }: IntelligenceHubProps)
                       <span className="text-xs text-white/70 font-bold leading-snug group-hover:text-white transition-colors">{action}</span>
                     </div>
                   ))}
+                  {(!analysis.urgentActions || analysis.urgentActions.length === 0) && (
+                     <p className="text-[10px] text-white/30 italic px-2">No immediate actions required.</p>
+                  )}
                 </div>
               </div>
             </div>

@@ -35,11 +35,12 @@ public class AiForecastService {
                 .defaultSystem("You are a Senior Supply Chain Consultant. " +
                         "Analyze the transaction ledger and provide a professional executive report. " +
                         "Focus on Inventory Health and Threshold Optimization. " +
-                        "1. status: 'Healthy', 'Warning', or 'Critical'. " +
-                        "2. summary: 2-3 sentences of meaningful business insight. " +
-                        "3. urgentActions: 3 specific recommendations. " +
-                        "4. healthScore: Integer 0-100. " +
-                        "Output ONLY valid JSON.")
+                        "Return a JSON object with EXACTLY these keys: " +
+                        "1. status: (String: 'Healthy', 'Warning', or 'Critical') " +
+                        "2. summary: (String: 2-3 sentences) " +
+                        "3. urgentActions: (Array of Strings) " +
+                        "4. healthScore: (Integer 0-100) " +
+                        "Output ONLY valid JSON. No markdown, no explanation.")
                 .build();
         this.transactionRepository = transactionRepository;
         this.billingGuard = billingGuard;
@@ -60,7 +61,7 @@ public class AiForecastService {
             var item = txs.get(0).getInventoryItem();
 
             long totalOut = txs.stream()
-                    .filter(t -> t.getType() != null && t.getType().toString().contains("OUT"))
+                    .filter(t -> t.getType() != null && t.getType().contains("OUT"))
                     .mapToLong(t -> Math.abs(t.getQuantityChange()))
                     .sum();
 
@@ -89,14 +90,16 @@ public class AiForecastService {
     public InventorySummaryAnalysisDTO getGlobalAnalysis(String tenantId, String plan) {
         billingGuard.validateTokenBudget(tenantId, plan);
 
-        LocalDateTime sixtyDaysAgo = LocalDateTime.now().minusDays(60);
-        List<StockTransaction> history = transactionRepository.findAiAnalysisData(tenantId, sixtyDaysAgo);
+        LocalDateTime ninetyDaysAgo = LocalDateTime.now().minusDays(90);
+        List<StockTransaction> history = transactionRepository.findAiAnalysisData(tenantId, ninetyDaysAgo);
 
-        if (history.isEmpty()) return createEmptyResponse("No history found.");
+        if (history.isEmpty()) {
+            return createEmptyResponse("No transaction history found for analysis.");
+        }
 
         String dataFeed = history.stream()
                 .filter(t -> t.getInventoryItem() != null)
-                .map(t -> String.format("- %s: %s (%d units)",
+                .map(t -> String.format("- Item: %s | Action: %s | Qty: %d",
                         t.getInventoryItem().getName(),
                         t.getType(),
                         Math.abs(t.getQuantityChange())))
@@ -104,8 +107,11 @@ public class AiForecastService {
 
         try {
             ChatResponse response = chatClient.prompt()
-                    .user("Analyze velocity:\n" + dataFeed)
-                    .options(OllamaOptions.builder().format("json").temperature(0.7).build())
+                    .user("Analyze these stock movements and provide the executive JSON report:\n" + dataFeed)
+                    .options(OllamaOptions.builder()
+                            .format("json")
+                            .temperature(0.2)
+                            .build())
                     .call()
                     .chatResponse();
 
@@ -113,12 +119,16 @@ public class AiForecastService {
                 billingGuard.updateTokenUsage(tenantId, response.getMetadata().getUsage().getTotalTokens());
             }
 
-            String jsonOutput = response.getResult().getOutput().getContent();
-            return objectMapper.readValue(jsonOutput, InventorySummaryAnalysisDTO.class);
+            String content = response.getResult().getOutput().getContent();
+
+            String cleanedJson = content.replaceAll("```json", "").replaceAll("```", "").trim();
+
+            logger.info("AI Cleaned Output: {}", cleanedJson);
+            return objectMapper.readValue(cleanedJson, InventorySummaryAnalysisDTO.class);
 
         } catch (Exception e) {
-            logger.error("AI Error: {}", e.getMessage());
-            return createEmptyResponse("AI unavailable: " + e.getLocalizedMessage());
+            logger.error("AI Mapping/Service Error: {}", e.getMessage());
+            return createEmptyResponse("AI unavailable or returned invalid data: " + e.getLocalizedMessage());
         }
     }
 
@@ -126,7 +136,7 @@ public class AiForecastService {
         InventorySummaryAnalysisDTO dto = new InventorySummaryAnalysisDTO();
         dto.setStatus("Warning");
         dto.setSummary(message);
-        dto.setUrgentActions(List.of("Check data sync"));
+        dto.setUrgentActions(List.of("Record more stock transactions to enable AI insights"));
         dto.setHealthScore(0);
         return dto;
     }

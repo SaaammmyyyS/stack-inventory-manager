@@ -2,17 +2,18 @@ import { useState, useEffect } from "react";
 import { Loader2, Sparkles, LayoutGrid } from "lucide-react";
 import { ForecastCard } from "./ForecastCard";
 import { StockAIInsight } from "../../types/inventory";
+import { useInventory } from "@/hooks/useInventory";
 
 interface ForecastViewProps {
   tenantId: string;
-  getAuthToken: () => Promise<string>;
   isPro: boolean;
   plan?: string;
 }
 
-export function ForecastView({ tenantId, getAuthToken, isPro, plan }: ForecastViewProps) {
+export function ForecastView({ tenantId, isPro, plan }: ForecastViewProps) {
   const [insights, setInsights] = useState<StockAIInsight[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const { getAuthToken } = useInventory();
 
   useEffect(() => {
     const fetchForecasts = async () => {
@@ -23,7 +24,7 @@ export function ForecastView({ tenantId, getAuthToken, isPro, plan }: ForecastVi
           headers: {
             'Authorization': `Bearer ${token}`,
             'X-Tenant-ID': tenantId,
-            'X-Tenant-Plan': plan || 'free'
+            'X-Organization-Plan': plan || 'free'
           }
         });
 

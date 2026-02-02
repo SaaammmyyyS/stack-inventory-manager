@@ -18,17 +18,17 @@ public class ForecastController {
     private final AiForecastService aiForecastService;
 
     @GetMapping("/summary")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MEMBER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MEMBER', 'USER')")
     public ResponseEntity<InventorySummaryAnalysisDTO> getGlobalInventoryAnalysis(
             @RequestHeader("X-Tenant-ID") String tenantId,
-            @RequestHeader(value = "X-Tenant-Plan", defaultValue = "free") String plan) {
+            @RequestHeader(value = "X-Organization-Plan", defaultValue = "free") String plan) {
 
         InventorySummaryAnalysisDTO analysis = aiForecastService.getGlobalAnalysis(tenantId, plan);
         return ResponseEntity.ok(analysis);
     }
 
     @GetMapping("/all")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MEMBER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MEMBER', 'USER')")
     public ResponseEntity<List<StockAIInsightDTO>> getAllItemForecasts(
             @RequestHeader("X-Tenant-ID") String tenantId) {
         List<StockAIInsightDTO> forecasts = aiForecastService.calculateAllItemForecasts(tenantId);
