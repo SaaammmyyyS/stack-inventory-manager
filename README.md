@@ -62,7 +62,7 @@ graph TD
 Unlike standard "Where" clause filtering, this system implements **Hibernate 7 Tenant Filtering** at the session level. Every database interaction is natively scoped to a `tenant_id`, mitigating the risk of Cross-Tenant Data Leaks—a critical requirement for B2B SaaS compliance.
 
 ### 2. Strict DTO & Contract Integrity
-The `saas-manager` enforces a strict separation between the Persistence Layer and the Web Layer. 
+The `saas-manager` enforces a strict separation between the Persistence Layer and the Web Layer.
 * **Inbound:** Request DTOs validate constraints before hitting the service layer.
 * **Outbound:** Projections ensure internal database schemas (like password hashes or internal IDs) are never leaked to the frontend.
 
@@ -110,4 +110,4 @@ This differs from traditional RAG systems, which rely on vector databases and se
 | Grounded AI over RAG | 100% accuracy relative to live transactional data | Limited by LLM context window sizes |
 | Soft delete strategy | Preserves historical audit integrity | Requires explicit filter control in reporting queries |
 
-    
+

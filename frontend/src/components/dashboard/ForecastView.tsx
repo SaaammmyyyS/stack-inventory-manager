@@ -3,6 +3,7 @@ import { Loader2, Sparkles, LayoutGrid } from "lucide-react";
 import { ForecastCard } from "./ForecastCard";
 import { StockAIInsight } from "../../types/inventory";
 import { useInventory } from "@/hooks/useInventory";
+import { toast } from "sonner";
 
 interface ForecastViewProps {
   tenantId: string;
@@ -28,12 +29,19 @@ export function ForecastView({ tenantId, isPro, plan }: ForecastViewProps) {
           }
         });
 
-        if (!res.ok) throw new Error("Failed to fetch forecasts");
-
         const data = await res.json();
+
+        if (!res.ok) {
+           toast.error(data.message || "Failed to fetch forecasts", {
+             description: "Usage Guard Alert"
+           });
+           return;
+        }
+
         setInsights(data || []);
       } catch (e) {
         console.error("Forecast Error:", e);
+        toast.error("Network error while loading matrix.");
       } finally {
         setIsLoading(false);
       }

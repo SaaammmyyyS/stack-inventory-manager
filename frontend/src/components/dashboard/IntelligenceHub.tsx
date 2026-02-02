@@ -7,6 +7,7 @@ import {
 import { InventorySummary, StockTransaction } from "../../types/inventory";
 import { StockVelocityChart } from "./StockVelocityChart";
 import { useInventoryApi } from "../../lib/api";
+import { toast } from "sonner";
 
 interface IntelligenceHubProps {
   tenantId: string;
@@ -59,12 +60,20 @@ export function IntelligenceHub({ tenantId, isPro, plan }: IntelligenceHubProps)
         }
       });
 
-      if (aiRes.ok) {
-        const data = await aiRes.json();
-        setAnalysis(data);
+      const data = await aiRes.json();
+
+      if (!aiRes.ok) {
+        toast.error(data.message || "Analysis restricted", {
+          description: "Usage Guard Alert"
+        });
+        return;
       }
+
+      setAnalysis(data);
+      toast.success("Intelligence report generated");
     } catch (e) {
       console.error('AI Error:', e);
+      toast.error("Failed to connect to Intelligence Service");
     } finally {
       setIsAiLoading(false);
     }
@@ -188,9 +197,6 @@ export function IntelligenceHub({ tenantId, isPro, plan }: IntelligenceHubProps)
                       <span className="text-xs text-white/70 font-bold leading-snug group-hover:text-white transition-colors">{action}</span>
                     </div>
                   ))}
-                  {(!analysis.urgentActions || analysis.urgentActions.length === 0) && (
-                     <p className="text-[10px] text-white/30 italic px-2">No immediate actions required.</p>
-                  )}
                 </div>
               </div>
             </div>

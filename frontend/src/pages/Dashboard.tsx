@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { IntelligenceHub } from "@/components/dashboard/IntelligenceHub";
 import { ForecastView } from "@/components/dashboard/ForecastView";
+import { toast } from "sonner";
 
 export default function Dashboard() {
   const { items, trashedItems, isLoading, fetchItems, fetchTrash, getAuthToken, currentPlan } = useInventory();
@@ -47,6 +48,7 @@ export default function Dashboard() {
   const handleDownloadReport = async () => {
     if (!isPro) return;
     setIsDownloading(true);
+
     try {
       const token = await getAuthToken();
       const orgName = encodeURIComponent(organization?.name || "Personal Workspace");
@@ -54,15 +56,27 @@ export default function Dashboard() {
       const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/reports/weekly?orgName=${orgName}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
-          'X-Tenant-ID': tenantId
+          'X-Tenant-ID': tenantId,
+          'X-Organization-Plan': currentPlan || 'free'
         }
       });
 
       if (!response.ok) {
+        const errorData = await response.json();
+        const errorMessage = errorData.message || "Report generation failed";
+
         if (response.status === 429) {
-          alert("Daily report limit reached. Please try again tomorrow.");
+          toast.error("Daily Limit Reached", {
+            description: errorMessage
+          });
+        } else if (response.status === 402) {
+          toast.error("Subscription Required", {
+            description: errorMessage
+          });
         } else {
-          throw new Error(`Report download failed: ${response.status}`);
+          toast.error("Export Error", {
+            description: "Unable to generate PDF at this time."
+          });
         }
         return;
       }
@@ -76,9 +90,15 @@ export default function Dashboard() {
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
+
+      toast.success("Report Downloaded", {
+        description: "Your weekly inventory audit is ready."
+      });
     } catch (error) {
       console.error("Download error:", error);
-      alert("Failed to download report. Please check your connection.");
+      toast.error("Connection Failed", {
+        description: "Could not reach the reporting service."
+      });
     } finally {
       setIsDownloading(false);
     }
