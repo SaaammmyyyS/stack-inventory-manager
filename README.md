@@ -42,6 +42,7 @@ graph TD
 * **Runtime:** Java 21 (Amazon Corretto) utilizing **Virtual Threads** for high-throughput I/O.
 * **Multi-tenancy:** Shared-database, shared-schema approach using **Hibernate 7 `@TenantId`**. Tenant resolution is handled via a custom `CurrentTenantIdentifierResolver` linked to the `X-Tenant-ID` header.
 * **Rate Limiting:** Distributed bucket-fill strategy using **Bucket4j + Upstash Redis**, enforcing tiered limits based on tenant subscription levels.
+* **Usage Tracking:** Real-time usage reporting via **Redis**. The backend injects X-Usage-SKU and X-Usage-AI headers into every response, allowing the frontend to update progress bars without additional API calls.
 * **Persistence:** PostgreSQL (Supabase) with **Hibernate Soft Delete** for lifecycle management.
 * **Security:** Stateless JWT validation with **Clerk**; Method-level RBAC (`@PreAuthorize`).
 * **Reporting:** Low-overhead PDF generation via **OpenPDF**, avoiding the resource cost of headless browser rendering.
@@ -61,10 +62,12 @@ graph TD
 ### 1. Robust Data Isolation
 Unlike standard "Where" clause filtering, this system implements **Hibernate 7 Tenant Filtering** at the session level. Every database interaction is natively scoped to a `tenant_id`, mitigating the risk of Cross-Tenant Data Leaks—a critical requirement for B2B SaaS compliance.
 
-### 2. Strict DTO & Contract Integrity
-The `saas-manager` enforces a strict separation between the Persistence Layer and the Web Layer.
-* **Inbound:** Request DTOs validate constraints before hitting the service layer.
-* **Outbound:** Projections ensure internal database schemas (like password hashes or internal IDs) are never leaked to the frontend.
+### 2. Live Usage Sync (Header-based)
+To minimize API overhead, the system uses a **"Piggyback" usage sync pattern**. Instead of polling for usage stats, the backend computes current consumption (SKUs used vs. limit, AI tokens used vs. budget) and attaches this data to the response headers of standard CRUD operations.
+
+* **Zero-Latency Updates:** The frontend UI (progress bars, limit warnings) updates automatically after any data interaction.
+* **Reduced Complexity:** Eliminates the need for dedicated `/usage` polling endpoints or WebSocket overhead.
+* **Backend Enforcement:** Usage is validated by the `BillingGuard` before the response is finalized.
 
 ### 3. Predictive "Days-Until-Out" Analysis
 
