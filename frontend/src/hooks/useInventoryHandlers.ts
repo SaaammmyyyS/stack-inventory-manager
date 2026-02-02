@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useInventory } from './useInventory';
-import type { StockTransaction, InventoryItem } from './useInventory';
+import type { InventoryItem, StockTransaction } from './useInventory';
 import { toast } from 'sonner';
 
 export function useInventoryHandlers() {
@@ -43,8 +43,7 @@ export function useInventoryHandlers() {
     if (!adjustItem) return;
 
     const formData = new FormData(e.currentTarget);
-    const amountStr = formData.get("amount") as string;
-    const amount = parseInt(amountStr);
+    const amount = parseInt(formData.get("amount") as string);
     const reason = formData.get("reason") as string;
 
     if (isNaN(amount)) {
@@ -52,13 +51,7 @@ export function useInventoryHandlers() {
       return;
     }
 
-    const success = await inventory.recordMovement(
-      adjustItem.id,
-      amount,
-      adjustItem.type,
-      reason
-    );
-
+    const success = await inventory.recordMovement(adjustItem.id, amount, adjustItem.type, reason);
     if (success) {
       setAdjustItem(null);
       inventory.fetchRecentActivity();
@@ -69,46 +62,30 @@ export function useInventoryHandlers() {
     setHistoryItem({ id, name });
     setHistoryData([]);
     setIsHistoryLoading(true);
-    try {
-      const data = await inventory.fetchHistory(id);
-      setHistoryData(data || []);
-    } catch (err) {
-      setHistoryData([]);
-    } finally {
-      setIsHistoryLoading(false);
-    }
+    const data = await inventory.fetchHistory(id);
+    setHistoryData(data || []);
+    setIsHistoryLoading(false);
   };
 
-  const { refreshPlan } = inventory;
   const syncPlan = useCallback(async () => {
-    toast.promise(refreshPlan(), {
-      loading: 'Syncing your subscription...',
-      success: 'Plan updated successfully!',
-      error: 'Sync failed. Please try again.',
+    toast.promise(inventory.refreshPlan(), {
+      loading: 'Syncing subscription...',
+      success: 'Sync complete!',
+      error: 'Sync failed.',
     });
-  }, [refreshPlan]);
+  }, [inventory.refreshPlan]);
 
   return {
     ...inventory,
-    currentView,
-    setCurrentView,
-    isAddModalOpen,
-    setIsAddModalOpen,
-    itemToUpdate,
-    setItemToUpdate,
-    adjustItem,
-    setAdjustItem,
-    historyItem,
-    setHistoryItem,
-    itemToDelete,
-    setItemToDelete,
-    historyData,
-    setHistoryData,
-    isHistoryLoading,
-    handleAddProduct,
-    handleUpdateProduct,
-    handleStockAdjustment,
-    handleOpenHistory,
+    currentView, setCurrentView,
+    isAddModalOpen, setIsAddModalOpen,
+    itemToUpdate, setItemToUpdate,
+    adjustItem, setAdjustItem,
+    historyItem, setHistoryItem,
+    itemToDelete, setItemToDelete,
+    historyData, isHistoryLoading,
+    handleAddProduct, handleUpdateProduct,
+    handleStockAdjustment, handleOpenHistory,
     syncPlan
   };
 }

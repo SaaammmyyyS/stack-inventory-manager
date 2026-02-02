@@ -47,17 +47,14 @@ public class WebConfig implements WebMvcConfigurer {
                         "https://pruinose-camron-aerobically.ngrok-free.dev"
                 )
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH")
-                .allowedHeaders(
-                        "Authorization",
-                        "Content-Type",
-                        "X-Tenant-ID",
+                .allowedHeaders("*")
+                .exposedHeaders(
                         "X-Performed-By",
+                        "Retry-After",
                         "X-Organization-Plan",
-                        "svix-id",
-                        "svix-signature",
-                        "svix-timestamp"
+                        "X-Usage-SKU",
+                        "X-Usage-AI"
                 )
-                .exposedHeaders("X-Performed-By", "Retry-After", "X-Organization-Plan")
                 .allowCredentials(true)
                 .maxAge(3600);
     }

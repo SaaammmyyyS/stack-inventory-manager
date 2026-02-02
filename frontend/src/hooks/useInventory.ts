@@ -1,6 +1,7 @@
 import { useState, useCallback, useTransition, useMemo } from 'react';
 import { useAuth, useOrganization, useUser } from "@clerk/clerk-react";
 import { toast } from "sonner";
+import axios from "axios";
 
 export interface InventoryItem {
   id: string;
@@ -32,9 +33,6 @@ export interface FetchOptions {
   category?: string;
 }
 
-const API_BASE_URL = `${import.meta.env.VITE_API_BASE_URL}/api/inventory`;
-const TRANSACTION_URL = `${import.meta.env.VITE_API_BASE_URL}/api/transactions`;
-
 export function useInventory() {
   const { getToken } = useAuth();
   const { user } = useUser();
@@ -42,6 +40,10 @@ export function useInventory() {
 
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [totalCount, setTotalCount] = useState(0);
+  const [skuLimit, setSkuLimit] = useState(5);
+  const [aiUsage, setAiUsage] = useState(0);
+  const [aiLimit, setAiLimit] = useState(0);
+
   const [trashedItems, setTrashedItems] = useState<InventoryItem[]>([]);
   const [recentActivity, setRecentActivity] = useState<StockTransaction[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -49,11 +51,7 @@ export function useInventory() {
   const [isPending, startTransition] = useTransition();
 
   const tenantId = useMemo(() => organization?.id || user?.id || "personal", [organization?.id, user?.id]);
-
-  const currentPlan = useMemo(() => {
-    const plan = organization?.publicMetadata?.plan as string;
-    return plan?.toLowerCase() || 'free';
-  }, [organization?.publicMetadata?.plan]);
+  const currentPlan = useMemo(() => (organization?.publicMetadata?.plan as string)?.toLowerCase() || 'free', [organization]);
 
   const isAdmin = useMemo(() => {
     const isOrgAdmin = membership?.role === "org:admin" || membership?.role === "admin";
@@ -61,232 +59,178 @@ export function useInventory() {
     return isOrgAdmin || isMetadataAdmin;
   }, [membership?.role, user?.publicMetadata?.role]);
 
-  const getAuthToken = useCallback((forceRefresh = false) =>
-    getToken({
-      template: "spring-boot-backend",
-      skipCache: forceRefresh
-    }),
-  [getToken]);
+  const api = useMemo(() => {
+    const instance = axios.create({
+      baseURL: import.meta.env.VITE_API_BASE_URL,
+    });
 
-  const fetchWithAuth = useCallback(async (url: string, options: RequestInit = {}) => {
-    const token = await getAuthToken();
-    const headers = {
-      ...options.headers,
-      'Authorization': `Bearer ${token}`,
-      'X-Tenant-ID': tenantId,
-      'X-Organization-Plan': currentPlan,
-      'Content-Type': 'application/json',
-    };
+    instance.interceptors.request.use(async (config) => {
+      const token = await getToken({ template: "spring-boot-backend" });
+      config.headers.Authorization = `Bearer ${token}`;
+      config.headers['X-Tenant-ID'] = tenantId;
+      config.headers['X-Organization-Plan'] = currentPlan;
+      return config;
+    });
 
-    return fetch(url, { ...options, headers });
-  }, [getAuthToken, tenantId, currentPlan]);
+    instance.interceptors.response.use(
+      (response) => {
+        const processHeader = (headerName: string, type: 'sku' | 'ai') => {
+          const val = response.headers[headerName.toLowerCase()] || response.headers[headerName];
+
+          if (val && typeof val === 'string') {
+            const [curr, lim] = val.split('/').map(Number);
+
+            if (type === 'sku') {
+              setTotalCount(curr);
+              setSkuLimit(lim);
+            } else {
+              setAiUsage(curr);
+              setAiLimit(lim);
+            }
+
+            const percent = (curr / lim) * 100;
+            if (percent >= 80 && percent < 100) {
+              toast.warning(`${type.toUpperCase()} Usage Warning`, {
+                description: `You are at ${Math.round(percent)}% capacity (${curr}/${lim}).`,
+                id: `${type}-warning`
+              });
+            }
+          }
+        };
+
+        processHeader('X-Usage-SKU', 'sku');
+        processHeader('X-Usage-AI', 'ai');
+        return response;
+      },
+      (err) => {
+        if (err.response?.status === 402 || err.response?.status === 429) {
+          toast.error("Limit Reached", {
+            description: err.response.data?.message || "Please upgrade your plan."
+          });
+        }
+        return Promise.reject(err);
+      }
+    );
+    return instance;
+  }, [getToken, tenantId, currentPlan]);
 
   const fetchItems = useCallback(async (options: FetchOptions = {}) => {
     if (!isOrgLoaded) return;
     setIsLoading(true);
-
-    const { page = 1, limit = 10, search = "", category = "" } = options;
-
     try {
-      const query = new URLSearchParams({
-        page: page.toString(),
-        limit: limit.toString(),
-        search,
-        category,
-      });
-
-      const response = await fetchWithAuth(`${API_BASE_URL}?${query.toString()}`);
-
-      if (!response.ok) throw new Error("Could not load inventory");
-      const data = await response.json();
+      const { data } = await api.get('/api/inventory', { params: options });
       setItems(data.items || []);
-      setTotalCount(data.total || 0);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Connection failed");
+      setError("Could not load inventory");
     } finally {
       setIsLoading(false);
     }
-  }, [fetchWithAuth, isOrgLoaded]);
-
-  const fetchTrash = useCallback(async () => {
-    if (!isOrgLoaded) return;
-    setIsLoading(true);
-    try {
-      const response = await fetchWithAuth(`${API_BASE_URL}/trash`);
-      const data = await response.json();
-      setTrashedItems(Array.isArray(data) ? data : []);
-    } catch (err) {
-      setError("Failed to load recycle bin");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [fetchWithAuth, isOrgLoaded]);
+  }, [api, isOrgLoaded]);
 
   const addItem = useCallback(async (data: any): Promise<boolean> => {
     setError(null);
-    return new Promise((resolve) => {
-      startTransition(async () => {
-        try {
-          const response = await fetchWithAuth(API_BASE_URL, {
-            method: 'POST',
-            body: JSON.stringify({ ...data, tenantId })
-          });
-          if (!response.ok) {
-              const ed = await response.json();
-              throw new Error(ed.message || "Failed to add product");
-          }
-          await fetchItems();
-          toast.success("Item added successfully");
-          resolve(true);
-        } catch (err) {
-          setError(err instanceof Error ? err.message : "Failed to add product");
-          toast.error(err instanceof Error ? err.message : "Failed to add item");
-          resolve(false);
-        }
-      });
-    });
-  }, [fetchWithAuth, tenantId, fetchItems]);
+    try {
+      await api.post('/api/inventory', { ...data, tenantId });
+      await fetchItems();
+      toast.success("Item added successfully");
+      return true;
+    } catch (err: any) {
+      setError(err.response?.data?.message || "Failed to add product");
+      return false;
+    }
+  }, [api, tenantId, fetchItems]);
 
   const updateItem = useCallback(async (id: string, data: any): Promise<boolean> => {
     setError(null);
-    return new Promise((resolve) => {
-      startTransition(async () => {
-        try {
-          const response = await fetchWithAuth(`${API_BASE_URL}/${id}`, {
-            method: 'PUT',
-            body: JSON.stringify(data)
-          });
-          if (!response.ok) {
-            const ed = await response.json();
-            throw new Error(ed.message || "Failed to update product");
-          }
-          await fetchItems();
-          toast.success("Item updated");
-          resolve(true);
-        } catch (err) {
-          setError(err instanceof Error ? err.message : "Failed to update product");
-          resolve(false);
-        }
-      });
-    });
-  }, [fetchWithAuth, fetchItems]);
+    try {
+      await api.put(`/api/inventory/${id}`, data);
+      await fetchItems();
+      toast.success("Item updated");
+      return true;
+    } catch (err: any) {
+      setError(err.response?.data?.message || "Failed to update product");
+      return false;
+    }
+  }, [api, fetchItems]);
 
   const deleteItem = useCallback(async (id: string) => {
     try {
-      const adminName = user?.fullName || "Admin";
-      await fetchWithAuth(`${API_BASE_URL}/${id}`, {
-        method: 'DELETE',
-        headers: { 'X-Performed-By': adminName }
+      await api.delete(`/api/inventory/${id}`, {
+        headers: { 'X-Performed-By': user?.fullName || "Admin" }
       });
       setItems(prev => prev.filter(item => item.id !== id));
-      fetchTrash();
       toast.info("Item moved to trash");
-    } catch (err) {
-      setError("Delete failed.");
-    }
-  }, [fetchWithAuth, user?.fullName, fetchTrash]);
+    } catch (err) {}
+  }, [api, user?.fullName]);
+
+  const fetchTrash = useCallback(async () => {
+    if (!isOrgLoaded) return;
+    try {
+      const { data } = await api.get('/api/inventory/trash');
+      setTrashedItems(Array.isArray(data) ? data : []);
+    } catch (err) {}
+  }, [api, isOrgLoaded]);
 
   const restoreItem = useCallback(async (id: string) => {
     try {
-      await fetchWithAuth(`${API_BASE_URL}/restore/${id}`, { method: 'PUT' });
+      await api.put(`/api/inventory/restore/${id}`);
       fetchItems();
       fetchTrash();
       toast.success("Item restored");
-    } catch (err) {
-      setError("Restore failed");
-    }
-  }, [fetchWithAuth, fetchItems, fetchTrash]);
+    } catch (err) {}
+  }, [api, fetchItems, fetchTrash]);
 
   const permanentlyDelete = useCallback(async (id: string) => {
     try {
-      await fetchWithAuth(`${API_BASE_URL}/permanent/${id}`, { method: 'DELETE' });
+      await api.delete(`/api/inventory/permanent/${id}`);
       setTrashedItems(prev => prev.filter(item => item.id !== id));
       toast.error("Item permanently deleted");
-    } catch (err) {
-      setError("Permanent delete failed");
-    }
-  }, [fetchWithAuth]);
+    } catch (err) {}
+  }, [api]);
 
-  const recordMovement = useCallback(async (
-    itemId: string,
-    amount: number,
-    type: 'STOCK_IN' | 'STOCK_OUT',
-    reason: string
-  ): Promise<boolean> => {
-    setError(null);
+  const recordMovement = useCallback(async (itemId: string, amount: number, type: 'STOCK_IN' | 'STOCK_OUT', reason: string): Promise<boolean> => {
     try {
-      const response = await fetchWithAuth(`${TRANSACTION_URL}/${itemId}`, {
-        method: 'POST',
-        body: JSON.stringify({
-          amount,
-          type,
-          reason,
-          performedBy: user?.fullName || user?.primaryEmailAddress?.emailAddress || "System"
-        })
+      await api.post(`/api/transactions/${itemId}`, {
+        amount, type, reason,
+        performedBy: user?.fullName || "System"
       });
-
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.message || "Adjustment failed");
-      }
-
       await fetchItems();
-      toast.success(`Stock ${type === 'STOCK_IN' ? 'added' : 'removed'}`);
       return true;
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Adjustment error");
       return false;
     }
-  }, [fetchWithAuth, user?.fullName, user?.primaryEmailAddress?.emailAddress, fetchItems]);
+  }, [api, user?.fullName, fetchItems]);
 
   const fetchHistory = useCallback(async (itemId: string): Promise<StockTransaction[]> => {
     if (!itemId) return [];
     try {
-      const response = await fetchWithAuth(`${TRANSACTION_URL}/${itemId}`);
-      if (!response.ok) throw new Error("History fetch failed");
-      return await response.json();
-    } catch (err) {
-      return [];
-    }
-  }, [fetchWithAuth]);
+      const { data } = await api.get(`/api/transactions/${itemId}`);
+      return data;
+    } catch (err) { return []; }
+  }, [api]);
 
   const fetchRecentActivity = useCallback(async () => {
     if (!isOrgLoaded) return;
     try {
-      const response = await fetchWithAuth(`${TRANSACTION_URL}/recent`);
-      const data = await response.json();
+      const { data } = await api.get('/api/transactions/recent');
       setRecentActivity(Array.isArray(data) ? data : []);
-    } catch (err) {
-      setError("Failed to load activity feed");
-    }
-  }, [fetchWithAuth, isOrgLoaded]);
+    } catch (err) {}
+  }, [api, isOrgLoaded]);
 
   const refreshPlan = useCallback(async () => {
     if (organization) {
-      try {
-        const oldPlan = organization.publicMetadata.plan;
-        await organization.reload();
-        await getAuthToken(true);
-        const newPlan = organization.publicMetadata.plan;
-
-        if (oldPlan !== newPlan) {
-          toast.success(`Plan updated to ${newPlan || 'Free'}!`);
-          fetchItems();
-        } else {
-          toast.info("Plan status is already up to date.");
-        }
-      } catch (err) {
-        console.error("Plan sync failed:", err);
-      }
+      await organization.reload();
+      toast.success(`Plan updated!`);
+      fetchItems();
     }
-  }, [organization, getAuthToken, fetchItems]);
+  }, [organization, fetchItems]);
 
   return {
-    items, totalCount, trashedItems, recentActivity,
+    items, totalCount, skuLimit, aiUsage, aiLimit, trashedItems, recentActivity,
     isLoading, error, setError, isPending, isAdmin, currentPlan,
-    getAuthToken, addItem, updateItem, deleteItem, restoreItem,
+    addItem, updateItem, deleteItem, restoreItem,
     permanentlyDelete, recordMovement, fetchTrash,
     fetchItems, fetchHistory, fetchRecentActivity, refreshPlan,
-    fetchWithTenant: fetchWithAuth
+    api
   };
 }

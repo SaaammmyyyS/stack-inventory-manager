@@ -98,7 +98,6 @@ const ActiveInventoryTable: React.FC<ActiveInventoryTableProps> = ({
                           <Edit size={18} />
                         </button>
                       )}
-
                       <button
                         onClick={() => onHistory(item.id, item.name)}
                         className="hover:text-blue-500 hover:bg-blue-50 p-2.5 rounded-xl transition-all"
@@ -106,7 +105,6 @@ const ActiveInventoryTable: React.FC<ActiveInventoryTableProps> = ({
                       >
                         <History size={18} />
                       </button>
-
                       {isAdmin && (
                         <button
                           onClick={() => onDelete(item.id, item.name)}

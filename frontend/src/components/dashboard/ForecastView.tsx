@@ -11,43 +11,29 @@ interface ForecastViewProps {
   plan?: string;
 }
 
-export function ForecastView({ tenantId, isPro, plan }: ForecastViewProps) {
+export function ForecastView({ isPro }: ForecastViewProps) {
   const [insights, setInsights] = useState<StockAIInsight[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const { getAuthToken } = useInventory();
+  const { api } = useInventory();
 
   useEffect(() => {
     const fetchForecasts = async () => {
       if (!isPro) return;
+      setIsLoading(true);
       try {
-        const token = await getAuthToken();
-        const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/v1/forecast/all`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'X-Tenant-ID': tenantId,
-            'X-Organization-Plan': plan || 'free'
-          }
-        });
-
-        const data = await res.json();
-
-        if (!res.ok) {
-           toast.error(data.message || "Failed to fetch forecasts", {
-             description: "Usage Guard Alert"
-           });
-           return;
-        }
-
+        const { data } = await api.get('/api/v1/forecast/all');
         setInsights(data || []);
-      } catch (e) {
+      } catch (e: any) {
         console.error("Forecast Error:", e);
-        toast.error("Network error while loading matrix.");
+        if (e.response?.status !== 402) {
+          toast.error("Could not load health matrix");
+        }
       } finally {
         setIsLoading(false);
       }
     };
     fetchForecasts();
-  }, [tenantId, getAuthToken, isPro, plan]);
+  }, [api, isPro]);
 
   if (!isPro) {
     return (

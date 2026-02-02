@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import { InventorySummary, StockTransaction } from "../../types/inventory";
 import { StockVelocityChart } from "./StockVelocityChart";
-import { useInventoryApi } from "../../lib/api";
+import { useInventory } from "@/hooks/useInventory";
 import { toast } from "sonner";
 
 interface IntelligenceHubProps {
@@ -15,8 +15,8 @@ interface IntelligenceHubProps {
   plan?: string;
 }
 
-export function IntelligenceHub({ tenantId, isPro, plan }: IntelligenceHubProps) {
-  const { fetchWithTenant } = useInventoryApi();
+export function IntelligenceHub({ isPro }: IntelligenceHubProps) {
+  const { api } = useInventory();
   const [activities, setActivities] = useState<StockTransaction[]>([]);
   const [analysis, setAnalysis] = useState<InventorySummary | null>(null);
   const [isActivityLoading, setIsActivityLoading] = useState(true);
@@ -27,17 +27,14 @@ export function IntelligenceHub({ tenantId, isPro, plan }: IntelligenceHubProps)
   const loadActivities = useCallback(async () => {
     setIsActivityLoading(true);
     try {
-      const res = await fetchWithTenant(`/api/transactions/recent`);
-      if (res.ok) {
-        const data = await res.json();
-        setActivities(data || []);
-      }
+      const { data } = await api.get(`/api/transactions/recent`);
+      setActivities(data || []);
     } catch (e) {
       console.error('Fetch error:', e);
     } finally {
       setIsActivityLoading(false);
     }
-  }, [fetchWithTenant]);
+  }, [api]);
 
   useEffect(() => {
     if (!hasFetched.current) {
@@ -51,33 +48,18 @@ export function IntelligenceHub({ tenantId, isPro, plan }: IntelligenceHubProps)
 
     setIsAiLoading(true);
     try {
-      const token = await (window as any).Clerk.session.getToken();
-      const aiRes = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/v1/forecast/summary`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'X-Tenant-ID': tenantId,
-          'X-Organization-Plan': plan || 'free'
-        }
-      });
-
-      const data = await aiRes.json();
-
-      if (!aiRes.ok) {
-        toast.error(data.message || "Analysis restricted", {
-          description: "Usage Guard Alert"
-        });
-        return;
-      }
-
+      const { data } = await api.get('/api/v1/forecast/summary');
       setAnalysis(data);
       toast.success("Intelligence report generated");
-    } catch (e) {
+    } catch (e: any) {
       console.error('AI Error:', e);
-      toast.error("Failed to connect to Intelligence Service");
+      if (e.response?.status !== 402) {
+        toast.error("Failed to connect to Intelligence Service");
+      }
     } finally {
       setIsAiLoading(false);
     }
-  }, [tenantId, isPro, isAiLoading, plan]);
+  }, [api, isPro, isAiLoading]);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">

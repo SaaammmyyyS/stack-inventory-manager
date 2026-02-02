@@ -22,14 +22,32 @@ public class BillingGuard {
 
     public record PlanLimits(int rateLimit, int skuLimit, int dailyReportLimit, int monthlyTokenLimit) {}
 
+    public record UsageStats(long currentSkus, int skuLimit, int currentReports, int reportLimit, long currentTokens, int tokenLimit) {}
+
     public PlanLimits getLimits(String plan) {
         String normalizedPlan = (plan == null) ? "free" : plan.toLowerCase();
 
-        if (normalizedPlan.contains("pro") || normalizedPlan.contains("enterprise")) {
+        if (normalizedPlan.contains("pro") || normalizedPlan.contains("test")) {
             return new PlanLimits(1000, 10000, 50, 500000);
         }
 
-        return new PlanLimits(60, 50, 1, 15000);
+        return new PlanLimits(60, 5, 1, 15000);
+    }
+
+    public UsageStats getUsageStats(String tenantId, String plan) {
+        PlanLimits limits = getLimits(plan);
+
+        long skus = inventoryRepository.countByTenantId(tenantId);
+
+        String reportKey = "usage:report:" + tenantId + ":" + LocalDate.now();
+        String reportVal = redisTemplate.opsForValue().get(reportKey);
+        int reports = (reportVal != null) ? Integer.parseInt(reportVal) : 0;
+
+        String tokenKey = "usage:tokens:" + tenantId;
+        String tokenVal = redisTemplate.opsForValue().get(tokenKey);
+        long tokens = (tokenVal != null) ? Long.parseLong(tokenVal) : 0;
+
+        return new UsageStats(skus, limits.skuLimit(), reports, limits.dailyReportLimit(), tokens, limits.monthlyTokenLimit());
     }
 
     public void validateSkuLimit(String tenantId, String plan) {

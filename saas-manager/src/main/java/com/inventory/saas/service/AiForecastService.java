@@ -1,5 +1,6 @@
 package com.inventory.saas.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.inventory.saas.dto.InventorySummaryAnalysisDTO;
 import com.inventory.saas.dto.StockAIInsightDTO;
@@ -14,6 +15,7 @@ import org.slf4j.LoggerFactory;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -33,14 +35,16 @@ public class AiForecastService {
                              ObjectMapper objectMapper) {
         this.chatClient = chatClientBuilder
                 .defaultSystem("You are a Senior Supply Chain Consultant. " +
-                        "Analyze the transaction ledger and provide a professional executive report. " +
-                        "Focus on Inventory Health and Threshold Optimization. " +
-                        "Return a JSON object with EXACTLY these keys: " +
-                        "1. status: (String: 'Healthy', 'Warning', or 'Critical') " +
-                        "2. summary: (String: 2-3 sentences) " +
-                        "3. urgentActions: (Array of Strings) " +
-                        "4. healthScore: (Integer 0-100) " +
-                        "Output ONLY valid JSON. No markdown, no explanation.")
+                        "Analyze transaction data and provide a JSON executive report. " +
+                        "REQUIRED JSON STRUCTURE:\n" +
+                        "{\n" +
+                        "  \"status\": \"Healthy\" | \"Warning\" | \"Critical\",\n" +
+                        "  \"summary\": \"2-3 sentences explaining the state.\",\n" +
+                        "  \"urgentActions\": [\"Action 1\", \"Action 2\"],\n" +
+                        "  \"healthScore\": 85\n" +
+                        "}\n" +
+                        "IMPORTANT: healthScore must be a naked INTEGER (0-100). " +
+                        "Output ONLY valid JSON.")
                 .build();
         this.transactionRepository = transactionRepository;
         this.billingGuard = billingGuard;
@@ -110,7 +114,7 @@ public class AiForecastService {
                     .user("Analyze these stock movements and provide the executive JSON report:\n" + dataFeed)
                     .options(OllamaOptions.builder()
                             .format("json")
-                            .temperature(0.2)
+                            .temperature(0.1)
                             .build())
                     .call()
                     .chatResponse();
@@ -120,15 +124,36 @@ public class AiForecastService {
             }
 
             String content = response.getResult().getOutput().getContent();
-
             String cleanedJson = content.replaceAll("```json", "").replaceAll("```", "").trim();
 
-            logger.info("AI Cleaned Output: {}", cleanedJson);
-            return objectMapper.readValue(cleanedJson, InventorySummaryAnalysisDTO.class);
+            logger.info("AI raw output for tenant {}: {}", tenantId, cleanedJson);
+
+            JsonNode root = objectMapper.readTree(cleanedJson);
+            InventorySummaryAnalysisDTO dto = new InventorySummaryAnalysisDTO();
+
+            dto.setStatus(root.path("status").asText("Warning"));
+            dto.setSummary(root.path("summary").asText("Analysis complete."));
+
+            if (root.has("urgentActions") && root.get("urgentActions").isArray()) {
+                List<String> actions = new ArrayList<>();
+                root.get("urgentActions").forEach(node -> actions.add(node.asText()));
+                dto.setUrgentActions(actions);
+            } else {
+                dto.setUrgentActions(List.of("Continue monitoring stock levels"));
+            }
+
+            JsonNode scoreNode = root.path("healthScore");
+            if (scoreNode.isObject()) {
+                dto.setHealthScore(scoreNode.path("value").asInt(scoreNode.path("score").asInt(50)));
+            } else {
+                dto.setHealthScore(scoreNode.asInt(50));
+            }
+
+            return dto;
 
         } catch (Exception e) {
-            logger.error("AI Mapping/Service Error: {}", e.getMessage());
-            return createEmptyResponse("AI unavailable or returned invalid data: " + e.getLocalizedMessage());
+            logger.error("AI Analysis Failed for tenant {}: {}", tenantId, e.getMessage());
+            return createEmptyResponse("AI unavailable or returned invalid data format.");
         }
     }
 

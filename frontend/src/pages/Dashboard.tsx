@@ -10,7 +10,7 @@ import { ForecastView } from "@/components/dashboard/ForecastView";
 import { toast } from "sonner";
 
 export default function Dashboard() {
-  const { items, trashedItems, isLoading, fetchItems, fetchTrash, getAuthToken, currentPlan } = useInventory();
+  const { items, trashedItems, isLoading, fetchItems, fetchTrash, api, currentPlan } = useInventory();
   const { organization, isLoaded: isOrgLoaded } = useOrganization();
   const { user, isLoaded: isUserLoaded } = useUser();
   const { has } = useAuth();
@@ -50,39 +50,14 @@ export default function Dashboard() {
     setIsDownloading(true);
 
     try {
-      const token = await getAuthToken();
-      const orgName = encodeURIComponent(organization?.name || "Personal Workspace");
+      const orgName = organization?.name || "Personal Workspace";
 
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/reports/weekly?orgName=${orgName}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'X-Tenant-ID': tenantId,
-          'X-Organization-Plan': currentPlan || 'free'
-        }
+      const response = await api.get(`/api/reports/weekly`, {
+        params: { orgName },
+        responseType: 'blob'
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        const errorMessage = errorData.message || "Report generation failed";
-
-        if (response.status === 429) {
-          toast.error("Daily Limit Reached", {
-            description: errorMessage
-          });
-        } else if (response.status === 402) {
-          toast.error("Subscription Required", {
-            description: errorMessage
-          });
-        } else {
-          toast.error("Export Error", {
-            description: "Unable to generate PDF at this time."
-          });
-        }
-        return;
-      }
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
+      const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', `Inventory_Report_${new Date().toLocaleDateString()}.pdf`);
@@ -94,11 +69,13 @@ export default function Dashboard() {
       toast.success("Report Downloaded", {
         description: "Your weekly inventory audit is ready."
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Download error:", error);
-      toast.error("Connection Failed", {
-        description: "Could not reach the reporting service."
-      });
+      if (error.response?.status !== 429 && error.response?.status !== 402) {
+        toast.error("Export Error", {
+          description: "Unable to generate PDF at this time."
+        });
+      }
     } finally {
       setIsDownloading(false);
     }
