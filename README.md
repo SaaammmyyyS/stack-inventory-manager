@@ -4,11 +4,10 @@ A multi-tenant SaaS platform for real-time inventory management built with a foc
 
 The system addresses a common B2B SaaS challenge: multiple organizations sharing infrastructure without ever sharing data, while supporting high write throughput, operational correctness, and feature-tier differentiation.
 
-The AI layer follows a **grounded analytics approach**, where live transactional data is programmatically assembled and provided to the model for contextual analysis — rather than relying on embedding-based retrieval (RAG).
-
-
-
 ## 🏗️ System Architecture
+
+
+
 ```mermaid
 graph TD
     subgraph Client_Layer [Frontend: React 19 + TypeScript]
@@ -17,12 +16,13 @@ graph TD
     end
 
     subgraph API_Layer [Backend: Spring Boot 3.4]
-        WebApp -- "HTTP + X-Tenant-ID" --> Gateway[Spring Security Filter Chain]
+        WebApp -- "HTTP + X-Tenant-ID" --> RL[Upstash Redis Rate Limiter]
+        RL --> Gateway[Spring Security Filter Chain]
         Gateway -- "TenantContext Holder" --> Controller[Inventory Controller]
         Controller --> DTO[DTO Projection Layer]
         DTO --> Service[Inventory Service]
-        Service --> AiSvc[Grounded Analytics Service]
-        AiSvc --> LLM[LLM via Spring AI / OpenAI]
+        Service --> AiSvc[AiForecastService]
+        AiSvc --> LLM[Ollama / Spring AI]
     end
 
     subgraph Data_Layer [Persistence: PostgreSQL]
@@ -41,8 +41,9 @@ graph TD
 ### Backend (saas-manager)
 * **Runtime:** Java 21 (Amazon Corretto) utilizing **Virtual Threads** for high-throughput I/O.
 * **Multi-tenancy:** Shared-database, shared-schema approach using **Hibernate 7 `@TenantId`**. Tenant resolution is handled via a custom `CurrentTenantIdentifierResolver` linked to the `X-Tenant-ID` header.
+* **Rate Limiting:** Distributed bucket-fill strategy using **Bucket4j + Upstash Redis**, enforcing tiered limits based on tenant subscription levels.
 * **Persistence:** PostgreSQL (Supabase) with **Hibernate Soft Delete** for lifecycle management.
-* **Security:** Stateless JWT validation with **Method-Level RBAC** using `@PreAuthorize`.
+* **Security:** Stateless JWT validation with **Clerk**; Method-level RBAC (`@PreAuthorize`).
 * **Reporting:** Low-overhead PDF generation via **OpenPDF**, avoiding the resource cost of headless browser rendering.
 
 ### Frontend (frontend)
@@ -77,8 +78,13 @@ Forecasting uses a hybrid deterministic + grounded LLM analytics approach.
 
 This ensures forecasting remains explainable, context-aware, and operationally safe.
 
+### 4. Tiered Distributed Rate Limiting
+To protect the system from resource exhaustion and manage AI costs, we utilize a **Redis-backed distributed rate limiter**:
+* **Tenant-Aware Limits:** Quotas are dynamically applied based on the `X-Organization-Plan` header.
+* **Resiliency:** Implemented via **Bucket4j**, the system provides a graceful `429 Too Many Requests` response, ensuring platform stability during traffic spikes or "noisy neighbor" scenarios.
 
-### 4. Subscription-Aware Feature Gating
+
+### 5. Subscription-Aware Feature Gating
 The backend doesn't just check roles; it checks **Tenant Plan Metadata**. High-compute tasks (like AI forecasting and PDF batch processing) are intercepted by a `SubscriptionGuard` that validates the organization's Stripe status via Clerk metadata before execution.
 
 ## 🧠 AI Architecture Approach
@@ -98,11 +104,10 @@ This differs from traditional RAG systems, which rely on vector databases and se
 
 | Decision | Benefit | Cost / Limitation |
 |----------|---------|-------------------|
-| Shared-schema multi-tenancy | Simple scaling and migrations | Harder per-tenant indexing |
-| Hibernate tenant filters | Automatic isolation enforcement | Native queries require manual review |
-| Virtual Threads | Handles blocking I/O at scale | More complex thread dump analysis |
-| App Runner over ECS/EKS | No cluster operations overhead | Less infrastructure-level control |
-| AI-assisted insights | Faster iteration | Non-deterministic output and cost per call |
-| Soft delete strategy | Preserves audit history | Reporting queries require explicit filter control |
+| Shared-schema multi-tenancy | Simplified scaling and migrations | Requires careful per-tenant indexing |
+| Redis-backed Rate Limiting | Global limit consistency across instances | Introduces external dependency on Redis |
+| Virtual Threads | Significant throughput boost for blocking I/O | Requires Java 21+; complicates thread-local debugging |
+| Grounded AI over RAG | 100% accuracy relative to live transactional data | Limited by LLM context window sizes |
+| Soft delete strategy | Preserves historical audit integrity | Requires explicit filter control in reporting queries |
 
     
