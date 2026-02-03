@@ -32,7 +32,7 @@ public class TransactionController {
     }
 
     @PostMapping("/{itemId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MEMBER')")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_MEMBER')")
     public StockMovementResponseDTO addTransaction(
             @PathVariable UUID itemId,
             @RequestBody StockMovementRequestDTO request
@@ -48,7 +48,7 @@ public class TransactionController {
     }
 
     @GetMapping("/recent")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MEMBER', 'USER')")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_MEMBER', 'ROLE_USER')")
     public List<StockMovementResponseDTO> getRecentActivity(
             @RequestHeader("X-Tenant-ID") String tenantId
     ) {
@@ -56,7 +56,7 @@ public class TransactionController {
     }
 
     @GetMapping("/{itemId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MEMBER', 'USER')")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_MEMBER', 'ROLE_USER')")
     public List<StockMovementResponseDTO> getHistory(@PathVariable UUID itemId) {
         return inventoryService.getItemHistory(itemId).stream()
                 .map(this::convertToDto)

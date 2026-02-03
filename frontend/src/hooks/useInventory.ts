@@ -36,7 +36,7 @@ export interface FetchOptions {
 export function useInventory() {
   const { getToken } = useAuth();
   const { user } = useUser();
-  const { organization, isLoaded: isOrgLoaded, membership } = useOrganization();
+  const { organization, isLoaded: isOrgLoaded } = useOrganization();
 
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [totalCount, setTotalCount] = useState(0);
@@ -54,10 +54,10 @@ export function useInventory() {
   const currentPlan = useMemo(() => (organization?.publicMetadata?.plan as string)?.toLowerCase() || 'free', [organization]);
 
   const isAdmin = useMemo(() => {
-    const isOrgAdmin = membership?.role === "org:admin" || membership?.role === "admin";
+    const isOrgAdmin = organization?.membershipList?.find(m => m.publicUserData.userId === user?.id)?.role === "org:admin";
     const isMetadataAdmin = user?.publicMetadata?.role === 'admin';
     return isOrgAdmin || isMetadataAdmin;
-  }, [membership?.role, user?.publicMetadata?.role]);
+  }, [organization, user]);
 
   const api = useMemo(() => {
     const instance = axios.create({
@@ -76,10 +76,8 @@ export function useInventory() {
       (response) => {
         const processHeader = (headerName: string, type: 'sku' | 'ai') => {
           const val = response.headers[headerName.toLowerCase()] || response.headers[headerName];
-
           if (val && typeof val === 'string') {
             const [curr, lim] = val.split('/').map(Number);
-
             if (type === 'sku') {
               setTotalCount(curr);
               setSkuLimit(lim);
@@ -87,17 +85,8 @@ export function useInventory() {
               setAiUsage(curr);
               setAiLimit(lim);
             }
-
-            const percent = (curr / lim) * 100;
-            if (percent >= 80 && percent < 100) {
-              toast.warning(`${type.toUpperCase()} Usage Warning`, {
-                description: `You are at ${Math.round(percent)}% capacity (${curr}/${lim}).`,
-                id: `${type}-warning`
-              });
-            }
           }
         };
-
         processHeader('X-Usage-SKU', 'sku');
         processHeader('X-Usage-AI', 'ai');
         return response;
@@ -132,7 +121,6 @@ export function useInventory() {
     try {
       await api.post('/api/inventory', { ...data, tenantId });
       await fetchItems();
-      toast.success("Item added successfully");
       return true;
     } catch (err: any) {
       setError(err.response?.data?.message || "Failed to add product");
@@ -145,7 +133,6 @@ export function useInventory() {
     try {
       await api.put(`/api/inventory/${id}`, data);
       await fetchItems();
-      toast.success("Item updated");
       return true;
     } catch (err: any) {
       setError(err.response?.data?.message || "Failed to update product");
@@ -154,14 +141,52 @@ export function useInventory() {
   }, [api, fetchItems]);
 
   const deleteItem = useCallback(async (id: string) => {
+    let previousItems: InventoryItem[] = [];
+    setItems(prev => {
+      previousItems = [...prev];
+      return prev.filter(item => item.id !== id);
+    });
+
     try {
       await api.delete(`/api/inventory/${id}`, {
         headers: { 'X-Performed-By': user?.fullName || "Admin" }
       });
-      setItems(prev => prev.filter(item => item.id !== id));
       toast.info("Item moved to trash");
-    } catch (err) {}
+    } catch (err) {
+      setItems(previousItems);
+      toast.error("Failed to delete item");
+    }
   }, [api, user?.fullName]);
+
+  const recordMovement = useCallback(async (itemId: string, amount: number, type: 'STOCK_IN' | 'STOCK_OUT', reason: string): Promise<boolean> => {
+    let rollbackItems: InventoryItem[] = [];
+
+    setItems(prev => {
+      rollbackItems = [...prev];
+      return prev.map(item => {
+        if (item.id === itemId) {
+          const change = type === 'STOCK_IN' ? amount : -amount;
+          return { ...item, quantity: item.quantity + change };
+        }
+        return item;
+      });
+    });
+
+    try {
+      await api.post(`/api/transactions/${itemId}`, {
+        amount, type, reason,
+        performedBy: user?.fullName || "System"
+      });
+
+      fetchItems();
+      return true;
+    } catch (err: any) {
+      setItems(rollbackItems);
+      const msg = err.response?.data?.message || "Failed to update stock";
+      setError(msg);
+      return false;
+    }
+  }, [api, user?.fullName, fetchItems]);
 
   const fetchTrash = useCallback(async () => {
     if (!isOrgLoaded) return;
@@ -174,8 +199,8 @@ export function useInventory() {
   const restoreItem = useCallback(async (id: string) => {
     try {
       await api.put(`/api/inventory/restore/${id}`);
-      fetchItems();
-      fetchTrash();
+      await fetchItems();
+      await fetchTrash();
       toast.success("Item restored");
     } catch (err) {}
   }, [api, fetchItems, fetchTrash]);
@@ -187,19 +212,6 @@ export function useInventory() {
       toast.error("Item permanently deleted");
     } catch (err) {}
   }, [api]);
-
-  const recordMovement = useCallback(async (itemId: string, amount: number, type: 'STOCK_IN' | 'STOCK_OUT', reason: string): Promise<boolean> => {
-    try {
-      await api.post(`/api/transactions/${itemId}`, {
-        amount, type, reason,
-        performedBy: user?.fullName || "System"
-      });
-      await fetchItems();
-      return true;
-    } catch (err) {
-      return false;
-    }
-  }, [api, user?.fullName, fetchItems]);
 
   const fetchHistory = useCallback(async (itemId: string): Promise<StockTransaction[]> => {
     if (!itemId) return [];
@@ -221,7 +233,7 @@ export function useInventory() {
     if (organization) {
       await organization.reload();
       toast.success(`Plan updated!`);
-      fetchItems();
+      await fetchItems();
     }
   }, [organization, fetchItems]);
 

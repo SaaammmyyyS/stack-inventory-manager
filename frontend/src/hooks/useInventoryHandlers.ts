@@ -2,9 +2,12 @@ import { useState, useCallback } from 'react';
 import { useInventory } from './useInventory';
 import type { InventoryItem, StockTransaction } from './useInventory';
 import { toast } from 'sonner';
+import { useOrganization, useUser } from "@clerk/clerk-react";
 
 export function useInventoryHandlers() {
   const inventory = useInventory();
+  const { organization } = useOrganization();
+  const { user } = useUser();
 
   const [currentView, setCurrentView] = useState<'active' | 'trash'>('active');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -23,10 +26,14 @@ export function useInventoryHandlers() {
   const [historyData, setHistoryData] = useState<StockTransaction[]>([]);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
 
+  const tenantId = organization?.id || user?.id || "personal";
+
   const handleAddProduct = async (data: any) => {
     const success = await inventory.addItem(data);
     if (success) {
+      sessionStorage.removeItem(`ai_unlocked_${tenantId}`);
       setIsAddModalOpen(false);
+      toast.success("Product added successfully");
     }
   };
 
@@ -34,7 +41,9 @@ export function useInventoryHandlers() {
     if (!itemToUpdate?.id) return;
     const success = await inventory.updateItem(itemToUpdate.id, data);
     if (success) {
+      sessionStorage.removeItem(`ai_unlocked_${tenantId}`);
       setItemToUpdate(null);
+      toast.success("Product updated");
     }
   };
 
@@ -46,16 +55,29 @@ export function useInventoryHandlers() {
     const amount = parseInt(formData.get("amount") as string);
     const reason = formData.get("reason") as string;
 
-    if (isNaN(amount)) {
-      toast.error("Please enter a valid number");
+    if (isNaN(amount) || amount <= 0) {
+      toast.error("Please enter a valid quantity");
       return;
     }
 
-    const success = await inventory.recordMovement(adjustItem.id, amount, adjustItem.type, reason);
-    if (success) {
-      setAdjustItem(null);
-      inventory.fetchRecentActivity();
-    }
+    const targetItem = { ...adjustItem };
+    setAdjustItem(null);
+
+    const stockPromise = inventory.recordMovement(targetItem.id, amount, targetItem.type, reason);
+
+    toast.promise(stockPromise, {
+      loading: `Updating stock for ${targetItem.name}...`,
+      success: (isSuccessful) => {
+        if (isSuccessful === false) throw new Error("Server rejected update");
+
+        sessionStorage.removeItem(`ai_unlocked_${tenantId}`);
+        inventory.fetchRecentActivity();
+        return `Stock ${targetItem.type === 'STOCK_IN' ? 'replenished' : 'deducted'} for ${targetItem.name}`;
+      },
+      error: (err) => {
+        return err?.message || 'Stock update failed. Reverting changes.';
+      },
+    });
   };
 
   const handleOpenHistory = async (id: string, name: string) => {
@@ -73,7 +95,7 @@ export function useInventoryHandlers() {
       success: 'Sync complete!',
       error: 'Sync failed.',
     });
-  }, [inventory.refreshPlan]);
+  }, [inventory]);
 
   return {
     ...inventory,

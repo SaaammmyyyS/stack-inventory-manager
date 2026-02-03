@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Plus, Trash2, Loader2, Package, Search, AlertCircle } from 'lucide-react';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -45,18 +45,17 @@ export default function InventoryView() {
           search,
           category: category === 'all' ? '' : category
         });
-      }, 300);
+      }, 400);
       return () => clearTimeout(timer);
     } else {
       h.fetchTrash();
     }
-  }, [search, category, page, h.currentView, h.fetchItems, h.fetchTrash]);
+  }, [search, category, page, h.currentView]);
 
   if (!isAuthLoaded) return null;
 
   return (
     <div className="relative animate-in fade-in duration-500 pb-10 max-w-7xl mx-auto px-4">
-
       {h.currentPlan === 'free' && h.currentView === 'active' && (
         <div className="mt-8">
           <UsageWidget

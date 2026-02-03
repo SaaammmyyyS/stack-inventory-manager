@@ -7,12 +7,16 @@ import com.inventory.saas.model.InventoryItem;
 import com.inventory.saas.model.StockTransaction;
 import com.inventory.saas.repository.InventoryRepository;
 import com.inventory.saas.repository.TransactionRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -21,6 +25,7 @@ import java.util.stream.Collectors;
 @Service
 public class InventoryService {
 
+    private static final Logger logger = LoggerFactory.getLogger(InventoryService.class);
     private final InventoryRepository repository;
     private final TransactionRepository transactionRepository;
 
@@ -37,25 +42,22 @@ public class InventoryService {
         return repository.findByTenantIdAndDeletedFalse(tenantId, pageable);
     }
 
+    @Transactional
+    @CacheEvict(value = "ai-analysis", key = "#item.tenantId")
     public InventoryItem saveItem(InventoryItem item) {
         if (item.getSku() != null && !item.getSku().trim().isEmpty()) {
             boolean exists = repository.existsBySkuAndTenantId(item.getSku(), item.getTenantId());
             if (exists) {
-                throw new RuntimeException("Product with SKU '" + item.getSku() + "' already exists in your workspace.");
+                throw new RuntimeException("Product with SKU '" + item.getSku() + "' already exists.");
             }
         }
         return repository.save(item);
     }
 
     @Transactional
+    @CacheEvict(value = "ai-analysis", key = "#details.tenantId")
     public InventoryItem updateItem(UUID id, InventoryItem details) {
         return repository.findById(id).map(item -> {
-            if (details.getSku() != null && !details.getSku().equalsIgnoreCase(item.getSku())) {
-                boolean exists = repository.existsBySkuAndTenantId(details.getSku(), item.getTenantId());
-                if (exists) {
-                    throw new RuntimeException("SKU '" + details.getSku() + "' is already in use in your workspace.");
-                }
-            }
             item.setName(details.getName());
             item.setSku(details.getSku());
             item.setCategory(details.getCategory());
@@ -70,12 +72,9 @@ public class InventoryService {
         InventoryItem item = repository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Inventory item not found"));
 
+        evictAiCache(item.getTenantId());
+
         int adjustment = type.equalsIgnoreCase("STOCK_OUT") ? -Math.abs(amount) : Math.abs(amount);
-
-        if (type.equalsIgnoreCase("STOCK_OUT") && (item.getQuantity() + adjustment) < 0) {
-            throw new RuntimeException("Insufficient stock. Current balance: " + item.getQuantity());
-        }
-
         item.setQuantity(item.getQuantity() + adjustment);
         repository.save(item);
 
@@ -95,10 +94,11 @@ public class InventoryService {
         InventoryItem item = repository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Item not found"));
 
+        evictAiCache(item.getTenantId());
+
         StockTransaction deleteLog = new StockTransaction();
         deleteLog.setInventoryItem(item);
         deleteLog.setTenantId(item.getTenantId());
-        deleteLog.setQuantityChange(0);
         deleteLog.setType("DELETED");
         deleteLog.setReason("Item moved to recycle bin");
         deleteLog.setPerformedBy(performedBy);
@@ -107,20 +107,32 @@ public class InventoryService {
         repository.softDeleteById(id);
     }
 
-    public List<InventoryTrashDTO> getTrashItems(String tenantId) {
-        return repository.findTrashByTenantId(tenantId);
-    }
-
     @Transactional
     public void restoreItem(UUID id) {
+        InventoryItem item = repository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Item not found"));
+        evictAiCache(item.getTenantId());
         repository.restoreById(id);
     }
 
     @Transactional
     public void hardDeleteItem(UUID id) {
+        InventoryItem item = repository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Item not found"));
+        evictAiCache(item.getTenantId());
+
         transactionRepository.deleteByInventoryItemIdNative(id);
         repository.flush();
         repository.hardDeleteNative(id);
+    }
+
+    @CacheEvict(value = "ai-analysis", key = "#tenantId")
+    public void evictAiCache(String tenantId) {
+        logger.info("Evicting AI cache for tenant: {}", tenantId);
+    }
+
+    public List<InventoryTrashDTO> getTrashItems(String tenantId) {
+        return repository.findTrashByTenantId(tenantId);
     }
 
     public List<StockTransaction> getItemHistory(UUID id) {
@@ -129,7 +141,6 @@ public class InventoryService {
 
     public List<StockMovementResponseDTO> getRecentTransactionsRaw(String tenantId) {
         List<Map<String, Object>> rawData = transactionRepository.findRecentTransactionsRaw(tenantId);
-
         return rawData.stream().map(row -> StockMovementResponseDTO.builder()
                 .id((UUID) row.get("id"))
                 .quantityChange((Integer) row.get("quantityChange"))

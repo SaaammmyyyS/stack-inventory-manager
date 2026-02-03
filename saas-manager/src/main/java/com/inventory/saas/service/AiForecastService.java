@@ -9,6 +9,7 @@ import com.inventory.saas.repository.TransactionRepository;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.ollama.api.OllamaOptions;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -91,6 +92,7 @@ public class AiForecastService {
         }).collect(Collectors.toList());
     }
 
+    @Cacheable(value = "ai-analysis", key = "#tenantId")
     public InventorySummaryAnalysisDTO getGlobalAnalysis(String tenantId, String plan) {
         billingGuard.validateTokenBudget(tenantId, plan);
 
