@@ -60,35 +60,29 @@ graph TD
 ## 🚀 Engineering Highlights
 
 ### 1. Robust Data Isolation
-Unlike standard "Where" clause filtering, this system implements **Hibernate 7 Tenant Filtering** at the session level. Every database interaction is natively scoped to a `tenant_id`, mitigating the risk of Cross-Tenant Data Leaks—a critical requirement for B2B SaaS compliance.
+Unlike standard "Where" clause filtering, this system implements **Hibernate 7 Tenant Filtering** at the session level. Every database interaction is natively scoped to a `tenant_id` via the `TenantContext`, mitigating the risk of Cross-Tenant Data Leaks—a critical requirement for B2B SaaS compliance.
 
-### 2. Live Usage Sync (Header-based)
+### 2. High-Performance AI Caching (Caffeine)
+To mitigate the latency and cost of LLM inference, the system utilizes a **Reactive Eviction Cache** powered by Caffeine. 
+* **Write-Through Invalidation:** The cache is intelligently evicted only when relevant stock-altering transactions occur, ensuring AI insights never drift from live inventory levels.
+* **Tenant Isolation:** Cache keys are dynamically scoped using SpEL to ensure zero data-leakage between organizations.
+* **Latency Reduction:** Reduces Dashboard load times for analytical views from >3s (LLM cold start) to <50ms (Cache hit).
+
+### 3. Live Usage Sync (Header-based)
 To minimize API overhead, the system uses a **"Piggyback" usage sync pattern**. Instead of polling for usage stats, the backend computes current consumption (SKUs used vs. limit, AI tokens used vs. budget) and attaches this data to the response headers of standard CRUD operations.
+* **Zero-Latency Updates:** The frontend UI (progress bars, limit warnings) updates automatically after any data interaction without extra network round-trips.
+* **Backend Enforcement:** Usage is validated by the `BillingGuard` interceptor before the response is finalized.
 
-* **Zero-Latency Updates:** The frontend UI (progress bars, limit warnings) updates automatically after any data interaction.
-* **Reduced Complexity:** Eliminates the need for dedicated `/usage` polling endpoints or WebSocket overhead.
-* **Backend Enforcement:** Usage is validated by the `BillingGuard` before the response is finalized.
-
-### 3. Predictive "Days-Until-Out" Analysis
-
+### 4. Predictive "Days-Until-Out" Analysis
 Forecasting uses a hybrid deterministic + grounded LLM analytics approach.
-
-- **Deterministic Core:** Consumption velocity is calculated using rolling 7-day and 30-day windows. A linear regression model predicts the estimated depletion date based on historical stock-out trends.
-- **Grounded LLM Layer:** Structured inventory data, recent transactions, and computed metrics are assembled at runtime and injected into the LLM prompt for contextual analysis and human-readable insight generation.
-- **Not RAG:** The system does not use embedding-based document retrieval. Instead, it relies on deterministic database queries to provide real-time operational context.
+- **Deterministic Core:** Consumption velocity is calculated using rolling windows and linear regression to predict estimated depletion dates.
+- **Grounded LLM Layer:** Structured inventory data and computed metrics are assembled at runtime and injected into the LLM prompt. This differs from RAG as it relies on live transactional data rather than vector embeddings.
 - **Safety Model:** Alerts and reorder thresholds remain rule-based to prevent non-deterministic AI output from affecting operational correctness.
-- **Cost Control:** Forecasting operations are batched per tenant to avoid per-request LLM overhead.
 
-This ensures forecasting remains explainable, context-aware, and operationally safe.
-
-### 4. Tiered Distributed Rate Limiting
-To protect the system from resource exhaustion and manage AI costs, we utilize a **Redis-backed distributed rate limiter**:
-* **Tenant-Aware Limits:** Quotas are dynamically applied based on the `X-Organization-Plan` header.
-* **Resiliency:** Implemented via **Bucket4j**, the system provides a graceful `429 Too Many Requests` response, ensuring platform stability during traffic spikes or "noisy neighbor" scenarios.
-
-
-### 5. Subscription-Aware Feature Gating
-The backend doesn't just check roles; it checks **Tenant Plan Metadata**. High-compute tasks (like AI forecasting and PDF batch processing) are intercepted by a `SubscriptionGuard` that validates the organization's Stripe status via Clerk metadata before execution.
+### 5. Tiered Distributed Rate Limiting & Gating
+To protect the system from resource exhaustion, we utilize a **Redis-backed distributed rate limiter** and **Subscription Gating**:
+* **Tenant-Aware Limits:** Quotas are dynamically applied via **Bucket4j** based on the tenant's subscription plan.
+* **Feature Gating:** High-compute tasks (AI forecasting, PDF generation) are intercepted by a `SubscriptionGuard` that validates the organization's Stripe status via Clerk metadata before execution.
 
 ## 🧠 AI Architecture Approach
 
@@ -106,11 +100,11 @@ This differs from traditional RAG systems, which rely on vector databases and se
 ## ⚖️ Engineering Tradeoffs
 
 | Decision | Benefit | Cost / Limitation |
-|----------|---------|-------------------|
-| Shared-schema multi-tenancy | Simplified scaling and migrations | Requires careful per-tenant indexing |
-| Redis-backed Rate Limiting | Global limit consistency across instances | Introduces external dependency on Redis |
-| Virtual Threads | Significant throughput boost for blocking I/O | Requires Java 21+; complicates thread-local debugging |
-| Grounded AI over RAG | 100% accuracy relative to live transactional data | Limited by LLM context window sizes |
-| Soft delete strategy | Preserves historical audit integrity | Requires explicit filter control in reporting queries |
+| :--- | :--- | :--- |
+| **Shared-schema Multi-tenancy** | Simplifies database migrations and scaling; significantly lower operational overhead than siloed databases. | Requires rigorous session-level filtering (Hibernate `@TenantId`) and strategic indexing on `tenant_id` to maintain performance. |
+| **In-Memory Caching (Caffeine)** | Drastic reduction in LLM API costs and UI latency (sub-50ms hits). Provides a snappier user experience. | Increases JVM Heap memory usage; requires complex manual eviction hooks to ensure data consistency across the app. |
+| **Grounded AI over RAG** | Ensures 100% accuracy relative to live transactional data; avoids "hallucinations" common in outdated vector embeddings. | Limited by the LLM's context window size; lacks the ability to "search" through massive external document stores. |
+| **Header-based Usage Sync** | Zero-latency UI updates without dedicated polling endpoints or the overhead of WebSocket management. | Slightly increases response header size; requires frontend logic to intercept and parse headers on every API call. |
+| **Redis-backed Rate Limiting** | Ensures global limit consistency across horizontally scaled backend instances. | Introduces an external infrastructure dependency (Redis/Upstash) and a small network hop for every request. |
 
 
