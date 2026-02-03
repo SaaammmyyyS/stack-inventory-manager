@@ -40,7 +40,8 @@ export function useInventory() {
 
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [totalCount, setTotalCount] = useState(0);
-  const [skuLimit, setSkuLimit] = useState(5);
+
+  const [skuLimit, setSkuLimit] = useState(0);
   const [aiUsage, setAiUsage] = useState(0);
   const [aiLimit, setAiLimit] = useState(0);
 
@@ -93,7 +94,7 @@ export function useInventory() {
       },
       (err) => {
         if (err.response?.status === 402 || err.response?.status === 429) {
-          toast.error("Limit Reached", {
+          toast.error(err.response?.status === 402 ? "Limit Reached" : "Too Many Requests", {
             description: err.response.data?.message || "Please upgrade your plan."
           });
         }
@@ -160,7 +161,6 @@ export function useInventory() {
 
   const recordMovement = useCallback(async (itemId: string, amount: number, type: 'STOCK_IN' | 'STOCK_OUT', reason: string): Promise<boolean> => {
     let rollbackItems: InventoryItem[] = [];
-
     setItems(prev => {
       rollbackItems = [...prev];
       return prev.map(item => {
@@ -177,13 +177,11 @@ export function useInventory() {
         amount, type, reason,
         performedBy: user?.fullName || "System"
       });
-
       fetchItems();
       return true;
     } catch (err: any) {
       setItems(rollbackItems);
-      const msg = err.response?.data?.message || "Failed to update stock";
-      setError(msg);
+      setError(err.response?.data?.message || "Failed to update stock");
       return false;
     }
   }, [api, user?.fullName, fetchItems]);

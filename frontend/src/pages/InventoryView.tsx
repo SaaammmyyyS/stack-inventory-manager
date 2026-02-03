@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { Plus, Trash2, Loader2, Package, Search, AlertCircle } from 'lucide-react';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -28,10 +28,10 @@ export default function InventoryView() {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
   const [page, setPage] = useState(1);
-  const limit = 10;
+  const PAGE_SIZE = 10;
 
-  const isLimitReached = h.totalCount >= h.skuLimit;
-  const isNearLimit = h.totalCount >= (h.skuLimit * 0.6) && !isLimitReached;
+  const isLimitReached = h.skuLimit > 0 && h.totalCount >= h.skuLimit;
+  const isNearLimit = h.skuLimit > 0 && h.totalCount >= (h.skuLimit * 0.8) && !isLimitReached;
 
   const isEffectivelyLoading = h.isLoading &&
     (h.currentView === 'active' ? h.items.length === 0 : h.trashedItems.length === 0);
@@ -41,7 +41,7 @@ export default function InventoryView() {
       const timer = setTimeout(() => {
         h.fetchItems({
           page,
-          limit,
+          limit: PAGE_SIZE,
           search,
           category: category === 'all' ? '' : category
         });
@@ -50,19 +50,19 @@ export default function InventoryView() {
     } else {
       h.fetchTrash();
     }
-  }, [search, category, page, h.currentView]);
+  }, [search, category, page, h.currentView, h.fetchItems, h.fetchTrash]);
 
   if (!isAuthLoaded) return null;
 
   return (
     <div className="relative animate-in fade-in duration-500 pb-10 max-w-7xl mx-auto px-4">
-      {h.currentPlan === 'free' && h.currentView === 'active' && (
+      {h.currentPlan === 'free' && h.currentView === 'active' && h.skuLimit > 0 && (
         <div className="mt-8">
           <UsageWidget
             current={h.totalCount}
             limit={h.skuLimit}
             plan={h.currentPlan}
-            label="Plan Usage"
+            label="Inventory Usage"
           />
         </div>
       )}
@@ -95,7 +95,7 @@ export default function InventoryView() {
           {h.currentView === 'active' && h.isAdmin && (
             <Button
               onClick={() => h.setIsAddModalOpen(true)}
-              disabled={isLimitReached}
+              disabled={isLimitReached || h.isLoading}
               className={`${
                 isLimitReached
                 ? 'bg-slate-100 text-slate-400 cursor-not-allowed opacity-50'
@@ -106,6 +106,8 @@ export default function InventoryView() {
             >
               {isLimitReached ? (
                 <><AlertCircle className="mr-2 h-5 w-5" /> Limit Reached</>
+              ) : h.isLoading && h.items.length === 0 ? (
+                <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Loading...</>
               ) : (
                 <><Plus className="mr-2 h-5 w-5 stroke-[3]" /> New Product</>
               )}
@@ -152,7 +154,7 @@ export default function InventoryView() {
               items={h.items}
               totalCount={h.totalCount}
               currentPage={page}
-              pageSize={limit}
+              pageSize={PAGE_SIZE}
               onPageChange={setPage}
               onAdjust={(id, name, type) => {
                 const item = h.items.find(i => i.id === id);
