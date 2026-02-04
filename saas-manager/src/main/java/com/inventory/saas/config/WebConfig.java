@@ -41,10 +41,10 @@ public class WebConfig implements WebMvcConfigurer {
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/**")
-                .allowedOrigins(
+                .allowedOriginPatterns(
                         "http://localhost:5173",
-                        "https://dmtc2sumyu.ap-southeast-1.awsapprunner.com",
-                        "https://pruinose-camron-aerobically.ngrok-free.dev"
+                        "https://*.ap-southeast-1.awsapprunner.com",
+                        "https://*-ngrok-free.dev"
                 )
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH")
                 .allowedHeaders("*")
@@ -53,7 +53,8 @@ public class WebConfig implements WebMvcConfigurer {
                         "Retry-After",
                         "X-Organization-Plan",
                         "X-Usage-SKU",
-                        "X-Usage-AI"
+                        "X-Usage-AI",
+                        "Content-Disposition"
                 )
                 .allowCredentials(true)
                 .maxAge(3600);

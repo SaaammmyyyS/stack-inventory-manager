@@ -8,7 +8,7 @@ import com.inventory.saas.model.StockTransaction;
 import com.inventory.saas.repository.TransactionRepository;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatResponse;
-import org.springframework.ai.ollama.api.OllamaOptions;
+import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.slf4j.Logger;
@@ -30,6 +30,8 @@ public class AiForecastService {
     private final BillingGuard billingGuard;
     private final ObjectMapper objectMapper;
 
+    private static final String MODEL_ID = "anthropic.claude-3-haiku-20240307-v1:0";
+
     public AiForecastService(ChatClient.Builder chatClientBuilder,
                              TransactionRepository transactionRepository,
                              BillingGuard billingGuard,
@@ -37,15 +39,14 @@ public class AiForecastService {
         this.chatClient = chatClientBuilder
                 .defaultSystem("You are a Senior Supply Chain Consultant. " +
                         "Analyze transaction data and provide a JSON executive report. " +
+                        "CRITICAL: You must output ONLY valid JSON. Do not include any preamble or conversational text. " +
                         "REQUIRED JSON STRUCTURE:\n" +
                         "{\n" +
                         "  \"status\": \"Healthy\" | \"Warning\" | \"Critical\",\n" +
                         "  \"summary\": \"2-3 sentences explaining the state.\",\n" +
                         "  \"urgentActions\": [\"Action 1\", \"Action 2\"],\n" +
                         "  \"healthScore\": 85\n" +
-                        "}\n" +
-                        "IMPORTANT: healthScore must be a naked INTEGER (0-100). " +
-                        "Output ONLY valid JSON.")
+                        "}")
                 .build();
         this.transactionRepository = transactionRepository;
         this.billingGuard = billingGuard;
@@ -113,9 +114,9 @@ public class AiForecastService {
 
         try {
             ChatResponse response = chatClient.prompt()
-                    .user("Analyze these stock movements and provide the executive JSON report:\n" + dataFeed)
-                    .options(OllamaOptions.builder()
-                            .format("json")
+                    .user("Analyze these stock movements and return the JSON report. DATA:\n" + dataFeed)
+                    .options(ChatOptions.builder()
+                            .model(MODEL_ID)
                             .temperature(0.1)
                             .build())
                     .call()
@@ -126,9 +127,9 @@ public class AiForecastService {
             }
 
             String content = response.getResult().getOutput().getContent();
-            String cleanedJson = content.replaceAll("```json", "").replaceAll("```", "").trim();
 
-            logger.info("AI raw output for tenant {}: {}", tenantId, cleanedJson);
+            String cleanedJson = extractJson(content);
+            logger.info("Cleaned AI JSON for tenant {}: {}", tenantId, cleanedJson);
 
             JsonNode root = objectMapper.readTree(cleanedJson);
             InventorySummaryAnalysisDTO dto = new InventorySummaryAnalysisDTO();
@@ -136,27 +137,42 @@ public class AiForecastService {
             dto.setStatus(root.path("status").asText("Warning"));
             dto.setSummary(root.path("summary").asText("Analysis complete."));
 
+            List<String> actions = new ArrayList<>();
             if (root.has("urgentActions") && root.get("urgentActions").isArray()) {
-                List<String> actions = new ArrayList<>();
                 root.get("urgentActions").forEach(node -> actions.add(node.asText()));
-                dto.setUrgentActions(actions);
             } else {
-                dto.setUrgentActions(List.of("Continue monitoring stock levels"));
+                actions.add("Continue monitoring stock levels");
             }
+            dto.setUrgentActions(actions);
 
             JsonNode scoreNode = root.path("healthScore");
-            if (scoreNode.isObject()) {
-                dto.setHealthScore(scoreNode.path("value").asInt(scoreNode.path("score").asInt(50)));
+            if (scoreNode.isNumber()) {
+                dto.setHealthScore(scoreNode.asInt());
+            } else if (scoreNode.isObject()) {
+                dto.setHealthScore(scoreNode.path("value").asInt(75));
             } else {
-                dto.setHealthScore(scoreNode.asInt(50));
+                dto.setHealthScore(75);
             }
 
             return dto;
 
         } catch (Exception e) {
-            logger.error("AI Analysis Failed for tenant {}: {}", tenantId, e.getMessage());
-            return createEmptyResponse("AI unavailable or returned invalid data format.");
+            logger.error("AI Error for tenant {}: {}", tenantId, e.getMessage(), e);
+            return createEmptyResponse("AI analysis failed to process. Ensure data is valid.");
         }
+    }
+
+    /**
+     * Extracts the JSON portion of the string in case Claude adds conversational text.
+     */
+    private String extractJson(String content) {
+        if (content == null) return "{}";
+        int start = content.indexOf("{");
+        int end = content.lastIndexOf("}");
+        if (start != -1 && end != -1 && end > start) {
+            return content.substring(start, end + 1);
+        }
+        return content.replaceAll("```json", "").replaceAll("```", "").trim();
     }
 
     private InventorySummaryAnalysisDTO createEmptyResponse(String message) {

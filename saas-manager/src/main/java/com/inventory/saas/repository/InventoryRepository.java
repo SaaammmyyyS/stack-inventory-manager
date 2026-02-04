@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface InventoryRepository extends JpaRepository<InventoryItem, UUID> {
@@ -22,6 +23,9 @@ public interface InventoryRepository extends JpaRepository<InventoryItem, UUID> 
 
         @Query(value = "SELECT count(*) FROM inventory WHERE tenant_id = :tenantId AND deleted = 'N'", nativeQuery = true)
         long countByTenantIdAndDeletedFalse(@Param("tenantId") String tenantId);
+
+        @Query(value = "SELECT * FROM inventory WHERE id = :id", nativeQuery = true)
+        Optional<InventoryItem> findByIdIncludingDeleted(@Param("id") UUID id);
 
         @Query(value = "SELECT * FROM inventory WHERE tenant_id = :tenantId AND deleted = 'N' " +
                 "AND (:search IS NULL OR :search = '' OR name ILIKE CONCAT('%', :search, '%') OR sku ILIKE CONCAT('%', :search, '%')) " +

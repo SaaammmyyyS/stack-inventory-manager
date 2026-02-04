@@ -69,10 +69,10 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of(
+        config.setAllowedOriginPatterns(List.of(
                 "http://localhost:5173",
-                "https://dmtc2sumyu.ap-southeast-1.awsapprunner.com",
-                "https://pruinose-camron-aerobically.ngrok-free.dev"
+                "https://*.ap-southeast-1.awsapprunner.com",
+                "https://*-ngrok-free.dev"
         ));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         config.setAllowedHeaders(List.of(
@@ -86,8 +86,16 @@ public class SecurityConfig {
                 "svix-signature",
                 "svix-timestamp"
         ));
-        config.setExposedHeaders(List.of("Content-Disposition", "X-Performed-By", "Retry-After"));
+        config.setExposedHeaders(List.of(
+                "Content-Disposition",
+                "X-Performed-By",
+                "Retry-After",
+                "X-Organization-Plan",
+                "X-Usage-SKU",
+                "X-Usage-AI"
+        ));
         config.setAllowCredentials(true);
+        config.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);

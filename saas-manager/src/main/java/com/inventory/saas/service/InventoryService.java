@@ -102,6 +102,7 @@ public class InventoryService {
         deleteLog.setType("DELETED");
         deleteLog.setReason("Item moved to recycle bin");
         deleteLog.setPerformedBy(performedBy);
+        deleteLog.setQuantityChange(0);
 
         transactionRepository.save(deleteLog);
         repository.softDeleteById(id);
@@ -109,16 +110,19 @@ public class InventoryService {
 
     @Transactional
     public void restoreItem(UUID id) {
-        InventoryItem item = repository.findById(id)
+
+        InventoryItem item = repository.findByIdIncludingDeleted(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Item not found"));
+
         evictAiCache(item.getTenantId());
         repository.restoreById(id);
     }
 
     @Transactional
     public void hardDeleteItem(UUID id) {
-        InventoryItem item = repository.findById(id)
+        InventoryItem item = repository.findByIdIncludingDeleted(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Item not found"));
+
         evictAiCache(item.getTenantId());
 
         transactionRepository.deleteByInventoryItemIdNative(id);
