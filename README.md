@@ -107,4 +107,48 @@ This differs from traditional RAG systems, which rely on vector databases and se
 | **Header-based Usage Sync** | Zero-latency UI updates without dedicated polling endpoints or the overhead of WebSocket management. | Slightly increases response header size; requires frontend logic to intercept and parse headers on every API call. |
 | **Redis-backed Rate Limiting** | Ensures global limit consistency across horizontally scaled backend instances. | Introduces an external infrastructure dependency (Redis/Upstash) and a small network hop for every request. |
 
+## 🚀 Deployment & Infrastructure
 
+The platform follows a modern **Infrastructure as Code (IaC)** and containerization workflow, specifically optimized for high-performance delivery in the `ap-southeast-1` (Singapore) region.
+
+### 1. Infrastructure as Code (Terraform)
+All AWS resources are provisioned via Terraform to ensure environment parity and security:
+* **ECR Repositories:** Private registries for `saas-backend` and `saas-frontend` with `force_delete` enabled for agile lifecycle management.
+* **IAM Least Privilege:** * `apprunner-ecr-access-role`: Dedicated role for image pulling during deployment.
+    * `apprunner-instance-role`: Runtime role granting `bedrock:InvokeModel` permissions, enabling secure AI forecasting without managing AWS Access Keys.
+* **App Runner:** Configured with `1024 CPU` and `2048 Memory` units to handle the resource demands of the Spring Boot runtime and Virtual Thread scheduling.
+
+### 2. Containerization Strategy
+Both the frontend and backend utilize **Multi-stage Docker builds**:
+* **Backend:** Leverages a Build stage (Maven) and a Runtime stage (Amazon Corretto 21) to keep production images lean and secure.
+* **Frontend:** Uses a Node build environment followed by an Nginx runtime stage to serve static assets with optimized header configurations.
+
+### 3. Automated Deployment Workflow
+Deployment is orchestrated via the `deploy.sh` script, which automates the transition from local code to cloud execution:
+
+```bash
+# 1. Build & Package
+./mvnw clean package -DskipTests
+
+# 2. Authenticate & Push
+aws ecr get-login-password --region ap-southeast-1 | docker login --username AWS --password-stdin [AWS_ACCOUNT_ID].dkr.ecr.ap-southeast-1.amazonaws.com
+
+# 3. Build & Push Images
+docker build -t saas-backend ./saas-manager
+docker push [AWS_ACCOUNT_ID][.dkr.ecr.ap-southeast-1.amazonaws.com/saas-backend:latest](https://.dkr.ecr.ap-southeast-1.amazonaws.com/saas-backend:latest)
+```
+
+### 4. Environment Variables & Secrets
+Security is maintained by injecting sensitive configurations directly into the App Runner service environment:
+* **Database:** `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` (Supabase).
+* **Auth:** `CLERK_ISSUER_URI`, `CLERK_SECRET_KEY`.
+* **Cache:** `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD`.
+* **AI Region:** `SPRING_AI_BEDROCK_AWS_REGION` explicitly set to `ap-southeast-1`.
+
+---
+
+### 🛠️ Local Setup
+To run the stack locally:
+1. Ensure **Docker Desktop** is running.
+2. Run `docker-compose up -d` to start local **PostgreSQL** and **Redis** instances.
+3. Use the `dev` Spring profile to connect to local dependencies.
