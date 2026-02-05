@@ -44,7 +44,7 @@ resource "aws_ecr_repository" "frontend" {
   force_delete = true
 }
 
-# 2. Access Role (ECR Access for Deployment)
+# 2. Access Role (ECR Access) - UPDATED TRUST POLICY
 resource "aws_iam_role" "apprunner_service_role" {
   name = "apprunner-ecr-access-role"
   assume_role_policy = jsonencode({
@@ -52,7 +52,12 @@ resource "aws_iam_role" "apprunner_service_role" {
     Statement = [{
       Action = "sts:AssumeRole",
       Effect = "Allow",
-      Principal = { Service = "build.apprunner.amazonaws.com" }
+      Principal = {
+        Service = [
+          "build.apprunner.amazonaws.com",
+          "tasks.apprunner.amazonaws.com"
+        ]
+      }
     }]
   })
 }
@@ -80,17 +85,11 @@ resource "aws_iam_role_policy" "bedrock_access" {
   role = aws_iam_role.apprunner_instance_role.id
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [
-      {
-        Action   = [
-          "bedrock:InvokeModel",
-          "bedrock:InvokeModelWithResponseStream",
-          "bedrock:ListFoundationModels"
-        ]
-        Effect   = "Allow"
-        Resource = "*" # Bedrock model ARNs are specific; '*' allows listing/using models in ap-southeast-1
-      }
-    ]
+    Statement = [{
+      Action   = ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream", "bedrock:ListFoundationModels"]
+      Effect   = "Allow"
+      Resource = "*"
+    }]
   })
 }
 
@@ -116,8 +115,7 @@ resource "aws_apprunner_service" "backend" {
           REDIS_HOST       = var.redis_host
           REDIS_PORT       = var.redis_port
           REDIS_PASSWORD   = var.redis_password
-          REDIS_SSL        = "true"
-
+          REDIS_SSL         = "true"
           SPRING_AI_BEDROCK_AWS_REGION = "ap-southeast-1"
           AWS_REGION                  = "ap-southeast-1"
         }
@@ -145,4 +143,8 @@ resource "aws_apprunner_service" "frontend" {
       image_configuration { port = "80" }
     }
   }
+}
+
+output "live_backend_url" {
+  value = "https://${aws_apprunner_service.backend.service_url}"
 }

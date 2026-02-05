@@ -8,37 +8,43 @@ REPO_BASE="${AWS_ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com"
 echo "🔐 Logging into Amazon ECR..."
 aws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin $REPO_BASE
 
-# 1. Ensure Infrastructure is partially ready (ECR)
-echo "🏗️ Setting up ECR repositories..."
+# 1. Ensure IAM and ECR are ready (The foundation)
+echo "🏗️ Initializing Infrastructure Foundation..."
 cd terraform
-terraform apply -target=aws_ecr_repository.backend -target=aws_ecr_repository.frontend -auto-approve
+terraform init
+terraform apply \
+  -target=aws_ecr_repository.backend \
+  -target=aws_ecr_repository.frontend \
+  -target=aws_iam_role.apprunner_service_role \
+  -target=aws_iam_role.apprunner_instance_role \
+  -target=aws_iam_role_policy_attachment.apprunner_ecr_policy \
+  -auto-approve
+
+echo "⏳ Waiting 20 seconds for IAM roles to propagate across AWS..."
+sleep 20
 cd ..
 
-# 2. REBUILD BACKEND JAR
-echo "☕ Compiling latest Java code..."
+# 2. Build Backend Jar
+echo "☕ Building Backend JAR..."
 cd saas-manager
 ./mvnw clean package -DskipTests
 cd ..
 
-# 3. Build and Push Backend
-echo "📦 Building & Pushing Backend Image..."
-docker build --no-cache \
-  -f saas-manager/Dockerfile \
-  -t saas-backend \
-  .
+# 3. Build & Push Backend Image
+echo "📦 Pushing Backend to ECR..."
+docker build --no-cache -f saas-manager/Dockerfile -t saas-backend .
 docker tag saas-backend:latest ${REPO_BASE}/saas-backend:latest
 docker push ${REPO_BASE}/saas-backend:latest
 
-# 4. Update Backend Service to get the URL
-echo "🚀 Deploying Backend Service..."
+# 4. Deploy Backend to get the URL
+echo "🚀 Deploying Backend Service (this takes ~5 mins)..."
 cd terraform
 terraform apply -target=aws_apprunner_service.backend -auto-approve
-# Grab the live URL for the frontend build
 LIVE_BACKEND_URL=$(terraform output -raw live_backend_url)
 cd ..
 
-# 5. Build and Push Frontend
-echo "📦 Building Frontend with API URL: $LIVE_BACKEND_URL"
+# 5. Build & Push Frontend (Injecting the dynamic URL)
+echo "📦 Building Frontend with API: $LIVE_BACKEND_URL"
 docker build --no-cache \
   -f frontend/Dockerfile \
   -t saas-frontend \
@@ -51,8 +57,8 @@ docker build --no-cache \
 docker tag saas-frontend:latest ${REPO_BASE}/saas-frontend:latest
 docker push ${REPO_BASE}/saas-frontend:latest
 
-# 6. Final Apply (Deploys Frontend + connects everything)
-echo "🏁 Finalizing Deployment..."
+# 6. Final Deployment
+echo "🏁 Finalizing Infrastructure..."
 cd terraform
 terraform apply -auto-approve
-echo "✅ Deployment Complete!"
+echo "✅ DEPLOYMENT SUCCESSFUL!"
