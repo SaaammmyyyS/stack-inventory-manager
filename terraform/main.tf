@@ -33,6 +33,13 @@ variable "redis_password" {
   sensitive = true
 }
 
+variable "vite_clerk_publishable_key" {
+  type = string
+}
+variable "vite_upstash_redis_rest_url" {
+  type = string
+}
+
 # 1. ECR Repositories
 resource "aws_ecr_repository" "backend" {
   name         = "saas-backend"
@@ -44,7 +51,7 @@ resource "aws_ecr_repository" "frontend" {
   force_delete = true
 }
 
-# 2. Access Role (ECR Access) - UPDATED TRUST POLICY
+# 2. Access Role (ECR Access)
 resource "aws_iam_role" "apprunner_service_role" {
   name = "apprunner-ecr-access-role"
   assume_role_policy = jsonencode({
@@ -145,6 +152,20 @@ resource "aws_apprunner_service" "frontend" {
   }
 }
 
+# OUTPUTS FOR DEPLOY SCRIPT
 output "live_backend_url" {
   value = "https://${aws_apprunner_service.backend.service_url}"
+}
+
+output "vite_clerk_key" {
+  value = var.vite_clerk_publishable_key
+}
+
+output "vite_redis_url" {
+  value = var.vite_upstash_redis_rest_url
+}
+
+output "vite_redis_token" {
+  value     = var.redis_password
+  sensitive = false
 }
