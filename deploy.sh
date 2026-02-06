@@ -1,6 +1,14 @@
 #!/bin/bash
 set -e
 
+# Safety Check: Only deploy from main
+CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+if [ "$CURRENT_BRANCH" != "main" ]; then
+  echo "❌ Error: Deployment is only allowed from the 'main' branch."
+  echo "You are currently on '$CURRENT_BRANCH'."
+  exit 1
+fi
+
 REGION="ap-southeast-1"
 AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 REPO_BASE="${AWS_ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com"

@@ -8,7 +8,6 @@ import com.inventory.saas.model.StockTransaction;
 import com.inventory.saas.repository.TransactionRepository;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatResponse;
-import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.slf4j.Logger;
@@ -29,8 +28,6 @@ public class AiForecastService {
     private final TransactionRepository transactionRepository;
     private final BillingGuard billingGuard;
     private final ObjectMapper objectMapper;
-
-    private static final String MODEL_ID = "anthropic.claude-3-haiku-20240307-v1:0";
 
     public AiForecastService(ChatClient.Builder chatClientBuilder,
                              TransactionRepository transactionRepository,
@@ -115,10 +112,6 @@ public class AiForecastService {
         try {
             ChatResponse response = chatClient.prompt()
                     .user("Analyze these stock movements and return the JSON report. DATA:\n" + dataFeed)
-                    .options(ChatOptions.builder()
-                            .model(MODEL_ID)
-                            .temperature(0.1)
-                            .build())
                     .call()
                     .chatResponse();
 
@@ -162,9 +155,6 @@ public class AiForecastService {
         }
     }
 
-    /**
-     * Extracts the JSON portion of the string in case Claude adds conversational text.
-     */
     private String extractJson(String content) {
         if (content == null) return "{}";
         int start = content.indexOf("{");
