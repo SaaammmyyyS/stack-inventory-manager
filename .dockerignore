@@ -1,0 +1,11 @@
+# 1. Ignore everything by default
+*
+
+!frontend/
+!saas-manager/
+!deploy.sh
+
+frontend/node_modules/
+saas-manager/node_modules/
+.git/
+.idea/

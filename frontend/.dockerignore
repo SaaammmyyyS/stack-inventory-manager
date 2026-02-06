@@ -1,10 +1,19 @@
-node_modules
-dist
+# Ignore local development artifacts
+**/node_modules
+**/dist
+**/target
+
+# Ignore git and IDE settings
 .git
-.gitignore
-.dockerignore
-Dockerfile
-.env
-.env.local
-.env.production
-README.md
+.idea
+.vscode
+
+# Ignore terraform local state
+terraform/.terraform
+terraform/*.tfstate*
+
+# Ignore root-level docker files
+deploy.sh
+docker-compose.yml
+
+# DO NOT ignore the frontend or saas-manager folders

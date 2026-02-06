@@ -40,7 +40,10 @@ cd ..
 
 # 3. Build & Push Backend Image
 echo "📦 Pushing Backend to ECR..."
-docker build --no-cache -f saas-manager/Dockerfile -t saas-backend .
+cd saas-manager
+docker build --no-cache -f Dockerfile -t saas-backend .
+cd ..
+
 docker tag saas-backend:latest ${REPO_BASE}/saas-backend:latest
 docker push ${REPO_BASE}/saas-backend:latest
 
@@ -48,6 +51,9 @@ docker push ${REPO_BASE}/saas-backend:latest
 echo "🚀 Deploying Backend and fetching secrets..."
 cd terraform
 terraform apply -target=aws_apprunner_service.backend -auto-approve
+
+echo "🔄 Refreshing Terraform outputs..."
+terraform refresh
 
 LIVE_BACKEND_URL=$(terraform output -raw live_backend_url)
 VITE_CLERK_KEY=$(terraform output -raw vite_clerk_key)
@@ -57,14 +63,16 @@ cd ..
 
 # 5. Build & Push Frontend
 echo "📦 Building Frontend with fetched secrets..."
+cd frontend
 docker build --no-cache \
-  -f frontend/Dockerfile \
+  -f Dockerfile \
   -t saas-frontend \
   --build-arg VITE_CLERK_PUBLISHABLE_KEY="$VITE_CLERK_KEY" \
   --build-arg VITE_API_BASE_URL="$LIVE_BACKEND_URL" \
   --build-arg VITE_UPSTASH_REDIS_REST_URL="$VITE_REDIS_URL" \
   --build-arg VITE_UPSTASH_REDIS_REST_TOKEN="$VITE_REDIS_TOKEN" \
   .
+cd ..
 
 docker tag saas-frontend:latest ${REPO_BASE}/saas-frontend:latest
 docker push ${REPO_BASE}/saas-frontend:latest

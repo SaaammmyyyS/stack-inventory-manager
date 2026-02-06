@@ -36,8 +36,14 @@ variable "redis_password" {
 variable "vite_clerk_publishable_key" {
   type = string
 }
+
 variable "vite_upstash_redis_rest_url" {
   type = string
+}
+
+variable "vite_upstash_redis_rest_token" {
+  type      = string
+  sensitive = true
 }
 
 # 1. ECR Repositories
@@ -150,22 +156,33 @@ resource "aws_apprunner_service" "frontend" {
       image_configuration { port = "80" }
     }
   }
+
+  health_check_configuration {
+    protocol            = "TCP"
+    path                = "/"
+    interval            = 10
+    timeout             = 5
+    healthy_threshold   = 1
+    unhealthy_threshold = 3
+  }
 }
 
-# OUTPUTS FOR DEPLOY SCRIPT
+# --- OUTPUTS FOR DEPLOY SCRIPT ---
+
 output "live_backend_url" {
   value = "https://${aws_apprunner_service.backend.service_url}"
 }
 
 output "vite_clerk_key" {
-  value = var.vite_clerk_publishable_key
+  value     = var.vite_clerk_publishable_key
+  sensitive = true
 }
 
 output "vite_redis_url" {
-  value = var.vite_upstash_redis_rest_url
+  value     = var.vite_upstash_redis_rest_url
 }
 
 output "vite_redis_token" {
-  value     = var.redis_password
-  sensitive = false
+  value     = var.vite_upstash_redis_rest_token
+  sensitive = true
 }
