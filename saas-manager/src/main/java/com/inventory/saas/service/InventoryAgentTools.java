@@ -44,9 +44,14 @@ public class InventoryAgentTools {
 
     public String getCurrentStockSummary() {
         String tenantId = TenantContext.getTenantId();
-        if (tenantId == null) return NO_TENANT_MSG;
+        logger.info("getCurrentStockSummary called for tenant: {}", tenantId);
+        if (tenantId == null) {
+            logger.warn("No tenant ID found for getCurrentStockSummary");
+            return NO_TENANT_MSG;
+        }
         try {
             Page<InventoryItem> page = inventoryService.getAllItemsPaginated(tenantId, null, null, 0, 100);
+            logger.info("Found {} inventory items for tenant: {}", page.getTotalElements(), tenantId);
             List<Map<String, Object>> items = page.getContent().stream()
                     .map(item -> {
                         Map<String, Object> m = new HashMap<>();
@@ -70,9 +75,22 @@ public class InventoryAgentTools {
 
     public String getRecentTransactions() {
         String tenantId = TenantContext.getTenantId();
-        if (tenantId == null) return NO_TENANT_MSG;
+        logger.info("getRecentTransactions called for tenant: {}", tenantId);
+
+        if (tenantId == null) {
+            logger.warn("No tenant ID found for getRecentTransactions");
+            return NO_TENANT_MSG;
+        }
+
         try {
             List<StockMovementResponseDTO> list = inventoryService.getRecentTransactionsRaw(tenantId);
+            logger.info("Found {} recent transactions for tenant: {}", list.size(), tenantId);
+
+            if (list.isEmpty()) {
+                logger.info("No transactions found for tenant: {}", tenantId);
+                return "[]";
+            }
+
             List<Map<String, Object>> data = list.stream().map(dto -> {
                 Map<String, Object> m = new HashMap<>();
                 m.put("id", dto.getId() != null ? dto.getId().toString() : null);

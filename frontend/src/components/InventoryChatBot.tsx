@@ -15,63 +15,242 @@ import { toast } from "sonner";
 type Message = {
   role: "user" | "assistant";
   content: string;
-  type?: 'text' | 'transactions' | 'inventory';
+  type?: 'text' | 'transactions' | 'inventory' | 'processing';
   data?: any;
+  isProcessing?: boolean;
+  debugInfo?: any;
 };
 
 const WELCOME =
   "I'm your Inventory Management Agent. Ask me about stock levels, recent movements, item forecasts, or to record a stock adjustment.";
 
-const formatChatResponse = (content: string): { type: 'text' | 'transactions' | 'inventory'; content: string; data?: any } => {
+const extractAllJson = (content: string) => {
+  const jsonMatches = content.match(/\{[^}]*\}/g) || [];
+  const validJsons = [];
+
+  for (const match of jsonMatches) {
+    try {
+      let fixed = match;
+      fixed = fixed.replace(/([{,])([^"])/g, '$1"$2');
+      fixed = fixed.replace(/([{,])([^"])/g, '$1"$2');
+      fixed = fixed.replace(/,([}\]])/g, '$1');
+
+      const parsed = JSON.parse(fixed);
+      validJsons.push(parsed);
+    } catch (e) {
+      console.warn('JSON parse failed:', match, e);
+    }
+  }
+
+  return validJsons;
+};
+
+const mergeJsonFragments = (fragments: any[]) => {
+  const merged: any = {};
+
+  for (const fragment of fragments) {
+    if (fragment.data && Array.isArray(fragment.data)) {
+      merged.inventory = fragment.data;
+    }
+    if (fragment.status) merged.status = fragment.status;
+    if (fragment.summary_text || fragment.summary) merged.summary = fragment.summary_text || fragment.summary;
+    if (fragment.health_score !== undefined) merged.health_score = fragment.health_score;
+    if (fragment.urgent_actions) merged.urgent_actions = fragment.urgent_actions;
+  }
+
+  return merged;
+};
+
+const DebugResponse = ({ content, parsed }: { content: string; parsed: any }) => (
+  <div className="border border-red-200 bg-red-50 p-4 rounded-lg mb-3">
+    <h4 className="font-medium text-red-800 mb-2 flex items-center gap-2">
+      <span>Debug Mode</span>
+      <button
+        onClick={() => {
+          const messagesElement = document.getElementById('chat-messages');
+          if (messagesElement) {
+            messagesElement.querySelectorAll('.debug-response').forEach(el => el.remove());
+          }
+        }}
+        className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded hover:bg-red-200"
+      >
+        Close Debug
+      </button>
+    </h4>
+
+    {parsed?.intent && (
+      <div className="mb-2 p-2 bg-white rounded border border-gray-200">
+        <div className="text-sm font-medium text-gray-700 mb-1">Detected Intent:</div>
+        <div className="text-sm text-blue-600 font-mono">{parsed.intent}</div>
+        {parsed.entities && Object.keys(parsed.entities).length > 0 && (
+          <>
+            <div className="text-sm font-medium text-gray-700 mb-1 mt-2">Extracted Entities:</div>
+            <div className="text-xs text-gray-600">
+              {Object.entries(parsed.entities).map(([key, value]) => (
+                <div key={key} className="ml-2">
+                  <span className="font-medium">{key}:</span> {value as string}
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+    )}
+
+    <details className="text-sm">
+      <summary className="cursor-pointer text-red-700 font-medium mb-2">Raw Response</summary>
+      <pre className="bg-white p-2 rounded text-xs overflow-auto max-h-32 border border-gray-200">
+        {content}
+      </pre>
+    </details>
+    <details className="text-sm mt-2">
+      <summary className="cursor-pointer text-red-700 font-medium mb-2">Parsed Data</summary>
+      <pre className="bg-white p-2 rounded text-xs overflow-auto max-h-32 border border-gray-200">
+        {JSON.stringify(parsed, null, 2)}
+      </pre>
+    </details>
+  </div>
+);
+
+const formatChatResponse = (content: string): { type: 'text' | 'transactions' | 'inventory' | 'processing'; content: string; data?: any; isProcessing?: boolean; debugInfo?: any } => {
   if (!content) return { type: 'text', content: 'No response available.' };
 
-  let jsonContent = '';
-  let naturalLanguage = content;
-
-  const jsonMatch = content.match(/\{[\s\S]*\}/);
-  if (jsonMatch) {
+  const fencedMatch = content.match(/```json\s*([\s\S]*?)\s*```/i);
+  if (fencedMatch && fencedMatch[1]) {
     try {
-      const parsed = JSON.parse(jsonMatch[0]);
+      const parsed = JSON.parse(fencedMatch[1]);
+      const debugInfo = { source: 'fenced_json', parsed };
 
-      if (parsed.data && Array.isArray(parsed.data)) {
-        const transactions = parsed.data;
-        if (transactions.length > 0 && transactions[0].type) {
+      if (parsed?.debug && parsed?.data) {
+        const enhancedDebugInfo = {
+          ...debugInfo,
+          intent: parsed.debug.intent,
+          entities: parsed.debug.entities,
+          data: parsed.data
+        };
+
+        if (parsed.data?.data && Array.isArray(parsed.data.data)) {
           return {
             type: 'transactions',
-            content: 'Here are the recent stock movements:',
-            data: transactions
+            content: parsed.data.summary || 'Here are the recent stock movements:',
+            data: parsed.data.data,
+            isProcessing: false,
+            debugInfo: enhancedDebugInfo,
           };
+        }
+
+        if (parsed.data?.items && Array.isArray(parsed.data.items)) {
+          return {
+            type: 'inventory',
+            content: parsed.data.summary || 'Current inventory status:',
+            data: parsed.data.items,
+            isProcessing: false,
+            debugInfo: enhancedDebugInfo,
+          };
+        }
+
+        if (parsed.data?.data && Array.isArray(parsed.data.data) && parsed.data.data[0]?.runoutDate) {
+          return {
+            type: 'inventory',
+            content: parsed.data.summary || 'Inventory forecasts:',
+            data: parsed.data.data,
+            isProcessing: false,
+            debugInfo: enhancedDebugInfo,
+          };
+        }
+
+        if (typeof parsed.data?.summary === 'string') {
+          return { type: 'text', content: parsed.data.summary, isProcessing: false, debugInfo: enhancedDebugInfo };
         }
       }
 
-      if (parsed.items && Array.isArray(parsed.items)) {
+      if (parsed?.data && Array.isArray(parsed.data)) {
         return {
-          type: 'inventory',
-          content: 'Current inventory status:',
-          data: parsed.items
+          type: 'transactions',
+          content: parsed.summary || 'Here are the recent stock movements:',
+          data: parsed.data,
+          isProcessing: false,
+          debugInfo,
         };
       }
 
-      if (parsed.summary) {
-        naturalLanguage = parsed.summary;
+      if (parsed?.items && Array.isArray(parsed.items)) {
+        return {
+          type: 'inventory',
+          content: parsed.summary || 'Current inventory status:',
+          data: parsed.items,
+          isProcessing: false,
+          debugInfo,
+        };
+      }
+
+      if (typeof parsed?.summary === 'string') {
+        return { type: 'text', content: parsed.summary, isProcessing: false, debugInfo };
       }
     } catch (e) {
+      // Fall through to best-effort parsing
+    }
+  }
 
+  const jsonFragments = extractAllJson(content);
+  let parsedData: any = null;
+  let debugInfo: any = null;
+
+  if (jsonFragments.length > 0) {
+    parsedData = mergeJsonFragments(jsonFragments);
+    debugInfo = { fragments: jsonFragments, merged: parsedData };
+  }
+
+  const processingKeywords = ['please wait', 'processing', 'fetching', 'analyzing', 'once data is ready'];
+  const isProcessingMessage = processingKeywords.some(keyword =>
+    content.toLowerCase().includes(keyword.toLowerCase())
+  );
+
+  if (isProcessingMessage) {
+    return {
+      type: 'processing',
+      content: content,
+      isProcessing: true,
+      debugInfo
+    };
+  }
+
+  if (parsedData) {
+    if (parsedData.inventory && Array.isArray(parsedData.inventory)) {
+      const transactions = parsedData.inventory;
+      if (transactions.length > 0 && (transactions[0].type || transactions[0].amount !== undefined)) {
+        return {
+          type: 'transactions',
+          content: 'Here are the recent stock movements:',
+          data: transactions,
+          isProcessing: false,
+          debugInfo
+        };
+      }
+      if (transactions.length > 0 && (transactions[0].name || transactions[0].quantity !== undefined)) {
+        return {
+          type: 'inventory',
+          content: parsedData.summary || 'Current inventory status:',
+          data: transactions,
+          isProcessing: false,
+          debugInfo
+        };
+      }
     }
   }
 
   let cleanContent = content
-    .replace(/```json[\s\S]*?```/g, '')
-    .replace(/```[\s\S]*?```/g, '')
-    .replace(/\{[\s\S]*\}/g, '')
-    .replace(/^\s*[\r\n]/gm, '')
+    .replace(/```json[\s\S]*?```/g, '') // Remove JSON code blocks
+    .replace(/```[\s\S]*?```/g, '') // Remove other code blocks
+    .replace(/\{[\s\S]*\}/g, '') // Remove JSON objects
+    .replace(/^\s*[\r\n]/gm, '') // Remove empty lines
     .trim();
 
-  if (naturalLanguage && naturalLanguage !== content) {
-    cleanContent = naturalLanguage;
+  if (parsedData && parsedData.summary) {
+    cleanContent = parsedData.summary;
   }
 
-  return { type: 'text', content: cleanContent };
+  return { type: 'text', content: cleanContent, isProcessing: false, debugInfo };
 };
 
 const TransactionMessage = ({ data }: { data: any[] }) => (
@@ -134,6 +313,7 @@ const InventoryMessage = ({ data }: { data: any[] }) => (
 export function InventoryChatBot() {
   const { api } = useInventory();
   const [open, setOpen] = useState(false);
+  const [debugMode, setDebugMode] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     { role: "assistant", content: WELCOME },
   ]);
@@ -163,7 +343,9 @@ export function InventoryChatBot() {
         role: "assistant",
         content: formatted.content,
         type: formatted.type,
-        data: formatted.data
+        data: formatted.data,
+        isProcessing: formatted.isProcessing,
+        debugInfo: formatted.debugInfo,
       }]);
     } catch (e: unknown) {
       const err = e as { response?: { status?: number; data?: { message?: string } } };
@@ -196,18 +378,26 @@ export function InventoryChatBot() {
           showCloseButton
         >
           <SheetHeader className="border-b border-slate-200 bg-white px-4 py-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 text-white">
-                <Bot size={20} strokeWidth={2.5} />
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 text-white">
+                  <Bot size={20} strokeWidth={2.5} />
+                </div>
+                <div>
+                  <SheetTitle>AI Inventory Assistant</SheetTitle>
+                  <SheetDescription>
+                    Ask about stock levels, recent movements, or record adjustments.
+                  </SheetDescription>
+                </div>
               </div>
-              <div>
-                <SheetTitle className="text-left text-slate-900">
-                  Inventory Assistant
-                </SheetTitle>
-                <SheetDescription className="text-left text-slate-500">
-                  Ask about stock, forecasts, or record movements
-                </SheetDescription>
-              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setDebugMode(!debugMode)}
+                className={`gap-2 ${debugMode ? 'border-red-300 text-red-600' : ''}`}
+              >
+                {debugMode ? 'Debug ON' : 'Debug OFF'}
+              </Button>
             </div>
           </SheetHeader>
 
@@ -232,7 +422,15 @@ export function InventoryChatBot() {
                       : "bg-white border border-slate-200 text-slate-800 shadow-sm"
                   }`}
                 >
-                  {msg.role === "assistant" && msg.type === 'transactions' && msg.data ? (
+                  {msg.role === "assistant" && msg.type === 'processing' && msg.isProcessing ? (
+                    <div>
+                      <p className="whitespace-pre-wrap break-words mb-3">{msg.content}</p>
+                      <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2.5 shadow-sm">
+                        <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
+                        <span className="text-xs text-slate-500">Processing your request...</span>
+                      </div>
+                    </div>
+                  ) : msg.role === "assistant" && msg.type === 'transactions' && msg.data ? (
                     <div>
                       <p className="whitespace-pre-wrap break-words mb-3">{msg.content}</p>
                       <TransactionMessage data={msg.data} />
@@ -241,6 +439,10 @@ export function InventoryChatBot() {
                     <div>
                       <p className="whitespace-pre-wrap break-words mb-3">{msg.content}</p>
                       <InventoryMessage data={msg.data} />
+                    </div>
+                  ) : msg.role === "assistant" && debugMode && msg.debugInfo ? (
+                    <div className="debug-response">
+                      <DebugResponse content={msg.content} parsed={msg.debugInfo} />
                     </div>
                   ) : (
                     <p className="whitespace-pre-wrap break-words">{msg.content}</p>

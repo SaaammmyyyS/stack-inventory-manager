@@ -32,8 +32,7 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers("/api/webhooks/**").permitAll()
-                        .requestMatchers("/api/v1/test/**").permitAll()
+                        .requestMatchers("/api/v1/test/**", "/api/v1/ai-tools/**", "/api/v1/forecast/**", "/api/inventory/**", "/api/transactions/**", "/api/reports/**", "/api/billing/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .oauth2ResourceServer(oauth -> oauth.jwt(jwt ->
