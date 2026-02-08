@@ -4,12 +4,14 @@ import com.inventory.saas.repository.InventoryRepository;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 @Service
@@ -18,7 +20,11 @@ public class BillingGuard {
 
     private static final Logger logger = LoggerFactory.getLogger(BillingGuard.class);
     private final InventoryRepository inventoryRepository;
-    private final StringRedisTemplate redisTemplate;
+
+    @Autowired(required = false)
+    private StringRedisTemplate redisTemplate;
+
+    private final ConcurrentHashMap<String, String> memoryStorage = new ConcurrentHashMap<>();
 
     public record PlanLimits(int rateLimit, int skuLimit, int dailyReportLimit, int monthlyTokenLimit) {}
 
@@ -40,14 +46,37 @@ public class BillingGuard {
         long skus = inventoryRepository.countByTenantId(tenantId);
 
         String reportKey = "usage:report:" + tenantId + ":" + LocalDate.now();
-        String reportVal = redisTemplate.opsForValue().get(reportKey);
+        String reportVal = getValue(reportKey);
         int reports = (reportVal != null) ? Integer.parseInt(reportVal) : 0;
 
         String tokenKey = "usage:tokens:" + tenantId;
-        String tokenVal = redisTemplate.opsForValue().get(tokenKey);
+        String tokenVal = getValue(tokenKey);
         long tokens = (tokenVal != null) ? Long.parseLong(tokenVal) : 0;
 
         return new UsageStats(skus, limits.skuLimit(), reports, limits.dailyReportLimit(), tokens, limits.monthlyTokenLimit());
+    }
+
+    private String getValue(String key) {
+        if (redisTemplate != null) {
+            try {
+                return redisTemplate.opsForValue().get(key);
+            } catch (Exception e) {
+                logger.warn("Redis not available, using memory fallback for key: {}", key);
+            }
+        }
+        return memoryStorage.get(key);
+    }
+
+    private void setValue(String key, String value) {
+        if (redisTemplate != null) {
+            try {
+                redisTemplate.opsForValue().set(key, value);
+                return;
+            } catch (Exception e) {
+                logger.warn("Redis not available, using memory fallback for key: {}", key);
+            }
+        }
+        memoryStorage.put(key, value);
     }
 
     public void validateSkuLimit(String tenantId, String plan) {
@@ -63,7 +92,7 @@ public class BillingGuard {
 
     public void validateReportLimit(String tenantId, String plan) {
         String key = "usage:report:" + tenantId + ":" + LocalDate.now();
-        String current = redisTemplate.opsForValue().get(key);
+        String current = getValue(key);
         int limit = getLimits(plan).dailyReportLimit();
 
         if (current != null && Integer.parseInt(current) >= limit) {
@@ -72,13 +101,14 @@ public class BillingGuard {
                     "Daily PDF report limit reached for the " + plan + " plan.");
         }
 
-        redisTemplate.opsForValue().increment(key);
-        redisTemplate.expire(key, 25, TimeUnit.HOURS);
+        String currentValue = getValue(key);
+        int newValue = (currentValue != null) ? Integer.parseInt(currentValue) + 1 : 1;
+        setValue(key, String.valueOf(newValue));
     }
 
     public void validateTokenBudget(String tenantId, String plan) {
         String key = "usage:tokens:" + tenantId;
-        String current = redisTemplate.opsForValue().get(key);
+        String current = getValue(key);
         int limit = getLimits(plan).monthlyTokenLimit();
 
         if (current != null && Long.parseLong(current) >= limit) {
@@ -90,10 +120,8 @@ public class BillingGuard {
 
     public void updateTokenUsage(String tenantId, long tokensUsed) {
         String key = "usage:tokens:" + tenantId;
-        redisTemplate.opsForValue().increment(key, tokensUsed);
-
-        if (redisTemplate.getExpire(key) == -1) {
-            redisTemplate.expire(key, 31, TimeUnit.DAYS);
-        }
+        String currentValue = getValue(key);
+        long newValue = (currentValue != null) ? Long.parseLong(currentValue) + tokensUsed : tokensUsed;
+        setValue(key, String.valueOf(newValue));
     }
 }

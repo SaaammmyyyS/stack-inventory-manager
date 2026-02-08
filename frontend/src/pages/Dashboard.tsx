@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { IntelligenceHub } from "@/components/dashboard/IntelligenceHub";
 import { ForecastView } from "@/components/dashboard/ForecastView";
+import { ForecastSummaryView } from "@/components/dashboard/ForecastSummaryView";
 import { toast } from "sonner";
 
 export default function Dashboard() {
@@ -16,7 +17,7 @@ export default function Dashboard() {
   const { has } = useAuth();
 
   const [isDownloading, setIsDownloading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'forecast'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'forecast' | 'analysis'>('overview');
   const hasInitialFetched = useRef(false);
   const tenantId = useMemo(() => organization?.id || user?.id || "personal", [organization?.id, user?.id]);
 
@@ -106,7 +107,7 @@ export default function Dashboard() {
 
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex bg-muted/50 p-1 rounded-2xl border border-border">
-            {['overview', 'forecast'].map((tab) => (
+            {['overview', 'forecast', 'analysis'].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab as any)}
@@ -116,7 +117,7 @@ export default function Dashboard() {
                   : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
-                {tab === 'overview' ? <LayoutDashboard size={14} /> : <Sparkles size={14} />}
+                {tab === 'overview' ? <LayoutDashboard size={14} /> : tab === 'forecast' ? <Sparkles size={14} /> : <Activity size={14} />}
                 {tab}
               </button>
             ))}
@@ -145,9 +146,13 @@ export default function Dashboard() {
 
           <IntelligenceHub tenantId={tenantId} isPro={isPro} plan={currentPlan} />
         </div>
-      ) : (
+      ) : activeTab === 'forecast' ? (
         <div className="animate-in fade-in slide-in-from-right-4 duration-500">
           <ForecastView tenantId={tenantId} isPro={isPro} plan={currentPlan} />
+        </div>
+      ) : (
+        <div className="animate-in fade-in slide-in-from-right-4 duration-500">
+          <ForecastSummaryView tenantId={tenantId} isPro={isPro} plan={currentPlan} />
         </div>
       )}
     </div>

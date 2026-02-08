@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.Map;
 
 @Data
 @NoArgsConstructor
@@ -23,4 +24,10 @@ public class InventorySummaryAnalysisDTO {
 
     @JsonProperty("healthScore")
     private int healthScore;
+
+    @JsonProperty("data")
+    private List<Map<String, Object>> data = new ArrayList<>();
+
+    @JsonProperty("analysis")
+    private List<Map<String, Object>> analysis = new ArrayList<>();
 }

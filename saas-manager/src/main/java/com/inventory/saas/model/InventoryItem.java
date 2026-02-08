@@ -11,9 +11,16 @@ import java.math.BigDecimal;
 
 @Data
 @Entity
-@Table(name = "inventory", uniqueConstraints = {
-        @UniqueConstraint(name = "uk_tenant_sku", columnNames = {"tenant_id", "sku"})
-})
+@Table(name = "inventory",
+       uniqueConstraints = {
+           @UniqueConstraint(name = "uk_tenant_sku", columnNames = {"tenant_id", "sku"})
+       },
+       indexes = {
+           @Index(name = "idx_tenant_id", columnList = "tenant_id"),
+           @Index(name = "idx_tenant_deleted", columnList = "tenant_id, deleted"),
+           @Index(name = "idx_name_search", columnList = "name"),
+           @Index(name = "idx_category", columnList = "category")
+       })
 @SoftDelete(columnName = "deleted", converter = YesNoConverter.class)
 public class InventoryItem {
 

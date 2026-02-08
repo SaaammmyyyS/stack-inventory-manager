@@ -34,4 +34,16 @@ public class ForecastController {
         List<StockAIInsightDTO> forecasts = aiForecastService.calculateAllItemForecasts(tenantId);
         return ResponseEntity.ok(forecasts);
     }
+
+    @PostMapping("/chat")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MEMBER', 'USER')")
+    public ResponseEntity<AgentChatResponse> chat(
+            @RequestHeader("X-Tenant-ID") String tenantId,
+            @RequestBody AgentChatRequest request) {
+        String reply = aiForecastService.chat(tenantId, request.message());
+        return ResponseEntity.ok(new AgentChatResponse(reply));
+    }
+
+    public record AgentChatRequest(String message) {}
+    public record AgentChatResponse(String reply) {}
 }

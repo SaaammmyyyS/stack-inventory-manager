@@ -12,6 +12,7 @@ import {
   CreditCard
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
+import { InventoryChatBot } from "./InventoryChatBot";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -153,6 +154,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             {children}
           </div>
         </main>
+
+        <InventoryChatBot />
       </div>
     </div>
   );

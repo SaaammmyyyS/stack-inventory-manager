@@ -9,7 +9,13 @@ import java.util.UUID;
 
 @Entity
 @Data
-@Table(name = "stock_transactions")
+@Table(name = "stock_transactions",
+       indexes = {
+           @Index(name = "idx_transaction_tenant", columnList = "tenant_id"),
+           @Index(name = "idx_transaction_item", columnList = "inventory_item_id"),
+           @Index(name = "idx_transaction_tenant_created", columnList = "tenant_id, created_at"),
+           @Index(name = "idx_transaction_type", columnList = "type")
+       })
 public class StockTransaction {
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
