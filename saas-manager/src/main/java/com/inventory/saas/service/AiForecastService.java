@@ -1,5 +1,6 @@
 package com.inventory.saas.service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.inventory.saas.dto.InventorySummaryAnalysisDTO;
@@ -23,9 +24,8 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Service
@@ -38,19 +38,24 @@ public class AiForecastService {
     private final InventoryRepository inventoryRepository;
     private final BillingGuard billingGuard;
     private final ObjectMapper objectMapper;
+    private final RecentTransactionsJsonBuilder recentTransactionsJsonBuilder;
+    private final ChatEntityExtractor chatEntityExtractor;
 
     public AiForecastService(ChatClient chatClient,
                              @Qualifier("simpleChatClient") ChatClient simpleChatClient,
                              TransactionRepository transactionRepository,
                              InventoryRepository inventoryRepository,
                              BillingGuard billingGuard,
-                             ObjectMapper objectMapper) {
+                             ObjectMapper objectMapper,
+                             RecentTransactionsJsonBuilder recentTransactionsJsonBuilder) {
         this.chatClient = chatClient;
         this.simpleChatClient = simpleChatClient;
         this.transactionRepository = transactionRepository;
         this.inventoryRepository = inventoryRepository;
         this.billingGuard = billingGuard;
         this.objectMapper = objectMapper;
+        this.recentTransactionsJsonBuilder = recentTransactionsJsonBuilder;
+        this.chatEntityExtractor = new ChatEntityExtractor();
     }
 
     public List<StockAIInsightDTO> calculateAllItemForecasts(String tenantId) {
@@ -174,7 +179,7 @@ public class AiForecastService {
                 List<Map<String, Object>> data = new ArrayList<>();
                 root.get("data").forEach(node -> {
                     try {
-                        data.add(objectMapper.convertValue(node, Map.class));
+                        data.add(objectMapper.convertValue(node, new TypeReference<Map<String, Object>>() {}));
                     } catch (Exception e) {
                         logger.warn("Failed to convert data node: {}", e.getMessage());
                     }
@@ -186,7 +191,7 @@ public class AiForecastService {
                 List<Map<String, Object>> analysis = new ArrayList<>();
                 root.get("analysis").forEach(node -> {
                     try {
-                        analysis.add(objectMapper.convertValue(node, Map.class));
+                        analysis.add(objectMapper.convertValue(node, new TypeReference<Map<String, Object>>() {}));
                     } catch (Exception e) {
                         logger.warn("Failed to convert analysis node: {}", e.getMessage());
                     }
@@ -221,166 +226,7 @@ public class AiForecastService {
     }
 
     private String buildRecentTransactionsJsonFilteredByItemName(String tenantId, String itemNameFilter) throws Exception {
-        List<Map<String, Object>> raw = transactionRepository.findRecentTransactionsRaw(tenantId);
-        String filter = itemNameFilter != null ? itemNameFilter.trim().toLowerCase() : "";
-
-        List<Map<String, Object>> data = raw.stream()
-                .filter(row -> row != null)
-                .filter(row -> {
-                    if (filter.isEmpty()) return true;
-                    Object itemName = row.get("itemName");
-                    return itemName != null && itemName.toString().toLowerCase().contains(filter);
-                })
-                .map(row -> {
-                    Map<String, Object> m = new HashMap<>();
-                    Object id = row.get("id");
-                    Object itemName = row.get("itemName");
-                    Object type = row.get("type");
-                    Object qtyChange = row.get("quantityChange");
-                    Object reason = row.get("reason");
-                    Object performedBy = row.get("performedBy");
-                    Object createdAt = row.get("createdAt");
-
-                    m.put("id", id != null ? id.toString() : null);
-                    m.put("itemName", itemName);
-                    m.put("type", type);
-
-                    int qc = 0;
-                    if (qtyChange instanceof Number n) {
-                        qc = n.intValue();
-                    }
-                    m.put("quantityChange", qc);
-                    m.put("amount", Math.abs(qc));
-
-                    m.put("reason", reason);
-                    m.put("performedBy", performedBy);
-                    m.put("createdAt", createdAt != null ? createdAt.toString() : null);
-                    return m;
-                })
-                .collect(Collectors.toList());
-
-        Map<String, Object> result = new HashMap<>();
-        result.put("status", "success");
-        if (!filter.isEmpty()) {
-            result.put("summary", data.isEmpty() ? "No transactions found for '" + itemNameFilter + "'." : "Transactions for '" + itemNameFilter + "':");
-        } else {
-            result.put("summary", data.isEmpty() ? "No recent transactions found." : "Here are the recent stock movements:");
-        }
-        result.put("data", data);
-        result.put("total", data.size());
-
-        return objectMapper.writeValueAsString(result);
-    }
-
-    private String buildRecentTransactionsJsonFilteredByPerformedBy(String tenantId, String performedByFilter) throws Exception {
-        List<Map<String, Object>> raw = transactionRepository.findRecentTransactionsRaw(tenantId);
-        String filter = performedByFilter != null ? performedByFilter.trim().toLowerCase() : "";
-
-        List<Map<String, Object>> data = raw.stream()
-                .filter(row -> row != null)
-                .filter(row -> {
-                    if (filter.isEmpty()) return true;
-                    Object performedBy = row.get("performedBy");
-                    return performedBy != null && performedBy.toString().toLowerCase().contains(filter);
-                })
-                .map(row -> {
-                    Map<String, Object> m = new HashMap<>();
-                    Object id = row.get("id");
-                    Object itemName = row.get("itemName");
-                    Object type = row.get("type");
-                    Object qtyChange = row.get("quantityChange");
-                    Object reason = row.get("reason");
-                    Object performedBy = row.get("performedBy");
-                    Object createdAt = row.get("createdAt");
-
-                    m.put("id", id != null ? id.toString() : null);
-                    m.put("itemName", itemName);
-                    m.put("type", type);
-
-                    int qc = 0;
-                    if (qtyChange instanceof Number n) {
-                        qc = n.intValue();
-                    }
-                    m.put("quantityChange", qc);
-                    m.put("amount", Math.abs(qc));
-
-                    m.put("reason", reason);
-                    m.put("performedBy", performedBy);
-                    m.put("createdAt", createdAt != null ? createdAt.toString() : null);
-                    return m;
-                })
-                .collect(Collectors.toList());
-
-        Map<String, Object> result = new HashMap<>();
-        result.put("status", "success");
-        if (!filter.isEmpty()) {
-            result.put("summary", data.isEmpty() ? "No transactions found performed by '" + performedByFilter + "'." : "Transactions performed by '" + performedByFilter + "':");
-        } else {
-            result.put("summary", data.isEmpty() ? "No recent transactions found." : "Here are the recent stock movements:");
-        }
-        result.put("data", data);
-        result.put("total", data.size());
-
-        return objectMapper.writeValueAsString(result);
-    }
-
-    private String buildRecentTransactionsJson(String tenantId) throws Exception {
-        return buildRecentTransactionsJsonFilteredByItemName(tenantId, null);
-    }
-
-    private String buildStockSummaryJson(String tenantId) throws Exception {
-        Pageable pageable = PageRequest.of(0, 100);
-        List<InventoryItem> items = inventoryRepository.findByTenantIdAndDeletedFalse(tenantId, pageable).getContent();
-
-        List<Map<String, Object>> payloadItems = items.stream()
-                .map(item -> {
-                    Map<String, Object> m = new HashMap<>();
-                    m.put("id", item.getId() != null ? item.getId().toString() : null);
-                    m.put("name", item.getName());
-                    m.put("sku", item.getSku());
-                    m.put("quantity", item.getQuantity() != null ? item.getQuantity() : 0);
-                    m.put("minThreshold", item.getMinThreshold());
-                    return m;
-                })
-                .collect(Collectors.toList());
-
-        Map<String, Object> result = new HashMap<>();
-        result.put("status", "success");
-        result.put("summary", payloadItems.isEmpty() ? "No inventory items found." : "Current inventory status:");
-        result.put("items", payloadItems);
-        result.put("total", payloadItems.size());
-
-        return objectMapper.writeValueAsString(result);
-    }
-
-    private String buildLowStockSummaryJson(String tenantId) throws Exception {
-        Pageable pageable = PageRequest.of(0, 100);
-        List<InventoryItem> items = inventoryRepository.findByTenantIdAndDeletedFalse(tenantId, pageable).getContent();
-
-        List<Map<String, Object>> payloadItems = items.stream()
-                .filter(item -> {
-                    int qty = item.getQuantity() != null ? item.getQuantity() : 0;
-                    int threshold = item.getMinThreshold() != null ? item.getMinThreshold() : 0;
-                    return qty <= threshold;
-                })
-                .map(item -> {
-                    Map<String, Object> m = new HashMap<>();
-                    m.put("id", item.getId() != null ? item.getId().toString() : null);
-                    m.put("name", item.getName());
-                    m.put("sku", item.getSku());
-                    m.put("quantity", item.getQuantity() != null ? item.getQuantity() : 0);
-                    m.put("minThreshold", item.getMinThreshold());
-                    return m;
-                })
-                .collect(Collectors.toList());
-
-        Map<String, Object> result = new HashMap<>();
-        result.put("status", "success");
-        result.put("summary", payloadItems.isEmpty() ? "No items need restocking." : "Items that need restocking soon:");
-        result.put("items", payloadItems);
-        result.put("total", payloadItems.size());
-
-        return objectMapper.writeValueAsString(result);
+        return recentTransactionsJsonBuilder.buildRecentTransactionsJsonFilteredByItemName(tenantId, itemNameFilter);
     }
 
     public String chat(String tenantId, String userMessage) {
@@ -388,7 +234,7 @@ public class AiForecastService {
             return "Please provide a non-empty message.";
         }
 
-        Map<String, String> entities = extractBasicEntities(userMessage);
+        Map<String, String> entities = chatEntityExtractor.extractBasicEntities(userMessage);
         String intent = classifyBasicIntent(userMessage);
         logger.info("Detected intent: {} with entities: {} for tenant: {}", intent, entities, tenantId);
 
@@ -410,28 +256,10 @@ public class AiForecastService {
 
         if ("recent_transactions".equals(intent)) {
             try {
-                String toolJson = buildRecentTransactionsJson(tenantId);
+                String toolJson = buildRecentTransactionsJsonFilteredByItemName(tenantId, null);
                 return "```json\n" + toolJson + "\n```";
             } catch (Exception e) {
                 logger.warn("Recent transactions deterministic path failed for tenant {}: {}", tenantId, e.getMessage());
-            }
-        }
-
-        if ("stock_summary".equals(intent)) {
-            try {
-                String toolJson = buildStockSummaryJson(tenantId);
-                return "```json\n" + toolJson + "\n```";
-            } catch (Exception e) {
-                logger.warn("Stock summary deterministic path failed for tenant {}: {}", tenantId, e.getMessage());
-            }
-        }
-
-        if ("low_stock".equals(intent)) {
-            try {
-                String toolJson = buildLowStockSummaryJson(tenantId);
-                return "```json\n" + toolJson + "\n```";
-            } catch (Exception e) {
-                logger.warn("Low stock deterministic path failed for tenant {}: {}", tenantId, e.getMessage());
             }
         }
 
@@ -473,47 +301,8 @@ public class AiForecastService {
         }
     }
 
-    private Map<String, String> extractBasicEntities(String userMessage) {
-        Map<String, String> entities = new HashMap<>();
-        String m = userMessage.toLowerCase();
-
-        Pattern byPattern = Pattern.compile("\\bby\\s+([A-Z][a-z]+(?:\\s+[A-Z][a-z]+){0,3})");
-        Matcher byMatcher = byPattern.matcher(userMessage);
-        if (byMatcher.find()) {
-            entities.put("filterType", "performedBy");
-            entities.put("filterValue", byMatcher.group(1));
-            entities.put("personName", byMatcher.group(1));
-        } else {
-            Pattern forOfPattern = Pattern.compile("\\b(?:for|of)\\s+([A-Z][a-z]+(?:\\s+[A-Z][a-z]+){0,3})");
-            Matcher forOfMatcher = forOfPattern.matcher(userMessage);
-            if (forOfMatcher.find()) {
-                entities.put("filterType", "itemName");
-                entities.put("filterValue", forOfMatcher.group(1));
-            }
-        }
-
-        String[] words = userMessage.split("\\s+");
-        for (String word : words) {
-            if (word.length() <= 2 || !Character.isUpperCase(word.charAt(0))) continue;
-            String cleaned = word.replaceAll("[^A-Za-z]", "");
-            if (cleaned.isBlank()) continue;
-
-            String lower = cleaned.toLowerCase();
-            if ("transactions".equals(lower) || "transaction".equals(lower) || "history".equals(lower) ||
-                    "show".equals(lower) || "stock".equals(lower) || "levels".equals(lower) || "movements".equals(lower)) {
-                continue;
-            }
-
-            if (!entities.containsKey("filterValue")) {
-                entities.put("filterType", "itemName");
-                entities.put("filterValue", cleaned);
-            }
-            if (!entities.containsKey("itemName") || cleaned.length() > entities.get("itemName").length()) {
-                entities.put("itemName", cleaned);
-            }
-        }
-
-        return entities;
+    private String buildRecentTransactionsJsonFilteredByPerformedBy(String tenantId, String performedByFilter) throws Exception {
+        return recentTransactionsJsonBuilder.buildRecentTransactionsJsonFilteredByPerformedBy(tenantId, performedByFilter);
     }
 
     private String classifyBasicIntent(String userMessage) {
@@ -663,7 +452,7 @@ public class AiForecastService {
 
         for (String keyword : inventoryKeywords) {
             if (lowerMessage.contains(keyword)) {
-                return false; // Needs tools
+                return false;
             }
         }
 

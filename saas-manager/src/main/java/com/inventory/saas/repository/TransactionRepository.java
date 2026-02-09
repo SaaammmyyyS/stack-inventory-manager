@@ -30,6 +30,13 @@ public interface TransactionRepository extends JpaRepository<StockTransaction, U
             "ORDER BY t.created_at DESC LIMIT 10", nativeQuery = true)
     List<Map<String, Object>> findRecentTransactionsRaw(@Param("tenantId") String tenantId);
 
+    @Query(value = "SELECT DISTINCT t.performed_by " +
+            "FROM stock_transactions t " +
+            "WHERE t.tenant_id = :tenantId " +
+            "AND t.performed_by IS NOT NULL " +
+            "AND TRIM(t.performed_by) <> ''", nativeQuery = true)
+    List<String> findDistinctPerformedBy(@Param("tenantId") String tenantId);
+
     @Modifying
     @Transactional
     @Query(value = "DELETE FROM stock_transactions WHERE inventory_item_id = :itemId", nativeQuery = true)
