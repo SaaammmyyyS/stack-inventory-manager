@@ -1,154 +1,316 @@
-# stack-inventory-manager
+# SaaSManager
 
-A multi-tenant SaaS platform for real-time inventory management built with a focus on **data isolation, concurrency safety, and subscription-aware backend enforcement**.
+Enterprise-grade multi-tenant inventory management platform with AI-powered insights and real-time analytics.
 
-The system addresses a common B2B SaaS challenge: multiple organizations sharing infrastructure without ever sharing data, while supporting high write throughput, operational correctness, and feature-tier differentiation.
+A comprehensive B2B SaaS solution that provides complete data isolation, intelligent forecasting, and scalable infrastructure for modern inventory management needs.
 
-## 🏗️ System Architecture
+## Features
 
+### Core Inventory Management
+- Multi-tenant architecture with complete data isolation
+- Product catalog management with full CRUD operations
+- Real-time stock level tracking and monitoring
+- Intelligent low stock alerts and threshold management
+- Comprehensive stock adjustments and movement tracking
+- Activity logging and complete audit trails
 
+### AI-Powered Intelligence
+- Natural language inventory queries through intelligent chatbot
+- AI-driven demand forecasting and predictive analytics
+- Advanced stock velocity analysis and insights
+- Automated inventory recommendations
+- Intent-based query processing system
+
+### Enterprise Security & Management
+- Clerk-based authentication and authorization
+- Role-based access control (Admin, Member, User)
+- Organization-based multi-tenancy
+- JWT token security with rate limiting
+- Comprehensive usage tracking and analytics
+
+### Analytics & Reporting
+- Real-time dashboard with key performance metrics
+- Inventory valuation calculations and analysis
+- Stock movement analytics with trend visualization
+- Advanced forecast visualization with interactive charts
+- Professional PDF report generation (Pro feature)
+
+### Cloud Infrastructure
+- Docker containerization for consistency
+- AWS App Runner for scalable deployment
+- Terraform infrastructure as code
+- High-performance PostgreSQL database
+- Redis caching layer for optimal performance
+
+## Architecture Overview
 
 ```mermaid
-graph TD
-    subgraph Client_Layer [Frontend: React 19 + TypeScript]
-        User((User)) --> WebApp[Vite Dashboard]
-        WebApp -.->|JWT/OIDC| Clerk[Clerk Auth]
-    end
+flowchart TD
+    %% Define styles for better visual hierarchy
+    classDef userStyle fill:#e3f2fd,stroke:#2196f3,stroke-width:2px,color:#0d47a1
+    classDef frontendStyle fill:#f3e5f5,stroke:#9c27b0,stroke-width:2px,color:#4a148c
+    classDef authStyle fill:#e8f5e8,stroke:#4caf50,stroke-width:2px,color:#1b5e20
+    classDef apiStyle fill:#fff3e0,stroke:#ff9800,stroke-width:2px,color:#e65100
+    classDef serviceStyle fill:#fce4ec,stroke:#e91e63,stroke-width:2px,color:#880e4f
+    classDef dataStyle fill:#f1f8e9,stroke:#689f38,stroke-width:2px,color:#33691e
+    classDef aiStyle fill:#e0f2f1,stroke:#009688,stroke-width:2px,color:#004d40
 
-    subgraph API_Layer [Backend: Spring Boot 3.4]
-        WebApp -- "HTTP + X-Tenant-ID" --> RL[Upstash Redis Rate Limiter]
-        RL --> Gateway[Spring Security Filter Chain]
-        Gateway -- "TenantContext Holder" --> Controller[Inventory Controller]
-        Controller --> DTO[DTO Projection Layer]
-        DTO --> Service[Inventory Service]
-        Service --> AiSvc[AiForecastService]
-        AiSvc --> LLM[Ollama / Spring AI]
-    end
+    %% User Request Flow
+    User[User Request] --> Frontend[React Application]
+    Frontend --> Auth[Clerk Authentication]
+    Auth --> API[Spring Boot API]
 
-    subgraph Data_Layer [Persistence: PostgreSQL]
-        Service -- "Hibernate @TenantId" --> DB[(Supabase/Postgres)]
-        DB --> Logic{Soft Delete / Audit}
-    end
+    %% Security and Validation Layer
+    API --> Tenant[Tenant Validation]
+    Tenant --> Rate[Rate Limiting]
 
-    subgraph Infrastructure [DevOps]
-        TF[Terraform] --> AppRunner[AWS App Runner]
-        TF --> ECR[Amazon ECR]
-    end
+    %% Business Logic Layer
+    Rate --> Inventory[Inventory Service]
+    Rate --> Forecast[Forecast Service]
+    Rate --> Analysis[AI Analysis]
 
+    %% Data Storage Layer
+    Inventory --> DB[(PostgreSQL)]
+    Forecast --> Cache[(Redis Cache)]
+    Analysis --> AI[ Spring AI Framework]
+
+    %% AI Services Integration
+    AI --> Ollama[ Ollama Models]
+    AI --> Bedrock[ AWS Bedrock]
+
+    %% Apply styles
+    class User userStyle
+    class Frontend frontendStyle
+    class Auth authStyle
+    class API,Tenant,Rate apiStyle
+    class Inventory,Forecast,Analysis serviceStyle
+    class DB,Cache dataStyle
+    class AI,Ollama,Bedrock aiStyle
+
+    %% Add flow annotations
+    User:::userStyle -.->|Secure| Auth:::authStyle
+    Auth:::authStyle -.->|JWT Token| API:::apiStyle
+    API:::apiStyle -.->|X-Tenant-ID| Tenant:::apiStyle
+    Tenant:::apiStyle -.->|Usage Check| Rate:::apiStyle
+    Rate:::apiStyle -.->|Business Logic| Inventory:::serviceStyle
+    Rate:::apiStyle -.->|Predictions| Forecast:::serviceStyle
+    Rate:::apiStyle -.->|Insights| Analysis:::serviceStyle
 ```
-## 🛠️ Technical Specifications
 
-### Backend (saas-manager)
-* **Runtime:** Java 21 (Amazon Corretto) utilizing **Virtual Threads** for high-throughput I/O.
-* **Multi-tenancy:** Shared-database, shared-schema approach using **Hibernate 7 `@TenantId`**. Tenant resolution is handled via a custom `CurrentTenantIdentifierResolver` linked to the `X-Tenant-ID` header.
-* **Rate Limiting:** Distributed bucket-fill strategy using **Bucket4j + Upstash Redis**, enforcing tiered limits based on tenant subscription levels.
-* **Usage Tracking:** Real-time usage reporting via **Redis**. The backend injects X-Usage-SKU and X-Usage-AI headers into every response, allowing the frontend to update progress bars without additional API calls.
-* **Persistence:** PostgreSQL (Supabase) with **Hibernate Soft Delete** for lifecycle management.
-* **Security:** Stateless JWT validation with **Clerk**; Method-level RBAC (`@PreAuthorize`).
-* **Reporting:** Low-overhead PDF generation via **OpenPDF**, avoiding the resource cost of headless browser rendering.
+### Technology Stack
+- **Frontend:** React 19, TypeScript, Vite, TailwindCSS, Clerk Authentication
+- **Backend:** Spring Boot 3.4.2, Java 21, Spring Security, Spring AI
+- **Database:** PostgreSQL for primary storage, Redis for caching
+- **AI/ML:** Spring AI with Ollama and AWS Bedrock integration
+- **Infrastructure:** AWS App Runner, ECR, Terraform, Docker
 
-### Frontend (frontend)
-* **Framework:** React 19 (Concurrent Mode) + Vite.
-* **State Management:** React Query for server-state synchronization and optimistic UI updates.
-* **Auth/Billing:** Clerk-integrated middleware for organization-switching and Stripe-gated API access.
+## Quick Start
 
-### Infrastructure
-* **Provider:** AWS (Region: `ap-southeast-1`).
-* **Deployment:** Containerized via **multi-stage Docker builds** (distroless-style) and deployed on **AWS App Runner**.
-* **IaC:** Terraform modules for VPC-less App Runner configuration and ECR lifecycle policies.
+### Prerequisites
+- Node.js 18 or higher
+- Java 21 Development Kit
+- Docker and Docker Compose
+- AWS CLI configured (for deployment)
+- PostgreSQL and Redis instances
 
-## 🚀 Engineering Highlights
+### Local Development Setup
 
-### 1. Robust Data Isolation
-Unlike standard "Where" clause filtering, this system implements **Hibernate 7 Tenant Filtering** at the session level. Every database interaction is natively scoped to a `tenant_id` via the `TenantContext`, mitigating the risk of Cross-Tenant Data Leaks—a critical requirement for B2B SaaS compliance.
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd inventory-saas
+   ```
 
-### 2. High-Performance AI Caching (Caffeine)
-To mitigate the latency and cost of LLM inference, the system utilizes a **Reactive Eviction Cache** powered by Caffeine. 
-* **Write-Through Invalidation:** The cache is intelligently evicted only when relevant stock-altering transactions occur, ensuring AI insights never drift from live inventory levels.
-* **Tenant Isolation:** Cache keys are dynamically scoped using SpEL to ensure zero data-leakage between organizations.
-* **Latency Reduction:** Reduces Dashboard load times for analytical views from >3s (LLM cold start) to <50ms (Cache hit).
+2. **Start local dependencies**
+   ```bash
+   docker-compose up -d
+   ```
 
-### 3. Live Usage Sync (Header-based)
-To minimize API overhead, the system uses a **"Piggyback" usage sync pattern**. Instead of polling for usage stats, the backend computes current consumption (SKUs used vs. limit, AI tokens used vs. budget) and attaches this data to the response headers of standard CRUD operations.
-* **Zero-Latency Updates:** The frontend UI (progress bars, limit warnings) updates automatically after any data interaction without extra network round-trips.
-* **Backend Enforcement:** Usage is validated by the `BillingGuard` interceptor before the response is finalized.
+3. **Configure environment variables**
+   - Copy `.env.example` to `.env`
+   - Configure database, authentication, and AI service credentials
 
-### 4. Predictive "Days-Until-Out" Analysis
-Forecasting uses a hybrid deterministic + grounded LLM analytics approach.
-- **Deterministic Core:** Consumption velocity is calculated using rolling windows and linear regression to predict estimated depletion dates.
-- **Grounded LLM Layer:** Structured inventory data and computed metrics are assembled at runtime and injected into the LLM prompt. This differs from RAG as it relies on live transactional data rather than vector embeddings.
-- **Safety Model:** Alerts and reorder thresholds remain rule-based to prevent non-deterministic AI output from affecting operational correctness.
+4. **Start the backend**
+   ```bash
+   cd saas-manager
+   ./mvnw spring-boot:run
+   ```
 
-### 5. Tiered Distributed Rate Limiting & Gating
-To protect the system from resource exhaustion, we utilize a **Redis-backed distributed rate limiter** and **Subscription Gating**:
-* **Tenant-Aware Limits:** Quotas are dynamically applied via **Bucket4j** based on the tenant's subscription plan.
-* **Feature Gating:** High-compute tasks (AI forecasting, PDF generation) are intercepted by a `SubscriptionGuard` that validates the organization's Stripe status via Clerk metadata before execution.
+5. **Start the frontend**
+   ```bash
+   cd frontend
+   npm install
+   npm run dev
+   ```
 
-## 🧠 AI Architecture Approach
+6. **Access the application**
+   - Frontend: http://localhost:5173
+   - Backend API: http://localhost:8080
 
-The AI system follows a **Structured Context Grounding** pattern:
+## Configuration
 
-1. Application queries relevant inventory items and transaction history
-2. Metrics (velocity, trends, depletion estimates) are computed deterministically
-3. Structured context is assembled and injected into the LLM prompt
-4. The LLM produces analysis, explanations, and recommendations
+### Essential Environment Variables
 
-This differs from traditional RAG systems, which rely on vector databases and semantic retrieval. Here, the context source of truth is the live transactional database, ensuring responses remain aligned with real operational data.
-
-
-
-## ⚖️ Engineering Tradeoffs
-
-| Decision | Benefit | Cost / Limitation |
-| :--- | :--- | :--- |
-| **Shared-schema Multi-tenancy** | Simplifies database migrations and scaling; significantly lower operational overhead than siloed databases. | Requires rigorous session-level filtering (Hibernate `@TenantId`) and strategic indexing on `tenant_id` to maintain performance. |
-| **In-Memory Caching (Caffeine)** | Drastic reduction in LLM API costs and UI latency (sub-50ms hits). Provides a snappier user experience. | Increases JVM Heap memory usage; requires complex manual eviction hooks to ensure data consistency across the app. |
-| **Grounded AI over RAG** | Ensures 100% accuracy relative to live transactional data; avoids "hallucinations" common in outdated vector embeddings. | Limited by the LLM's context window size; lacks the ability to "search" through massive external document stores. |
-| **Header-based Usage Sync** | Zero-latency UI updates without dedicated polling endpoints or the overhead of WebSocket management. | Slightly increases response header size; requires frontend logic to intercept and parse headers on every API call. |
-| **Redis-backed Rate Limiting** | Ensures global limit consistency across horizontally scaled backend instances. | Introduces an external infrastructure dependency (Redis/Upstash) and a small network hop for every request. |
-
-## 🚀 Deployment & Infrastructure
-
-The platform follows a modern **Infrastructure as Code (IaC)** and containerization workflow, specifically optimized for high-performance delivery in the `ap-southeast-1` (Singapore) region.
-
-### 1. Infrastructure as Code (Terraform)
-All AWS resources are provisioned via Terraform to ensure environment parity and security:
-* **ECR Repositories:** Private registries for `saas-backend` and `saas-frontend` with `force_delete` enabled for agile lifecycle management.
-* **IAM Least Privilege:** * `apprunner-ecr-access-role`: Dedicated role for image pulling during deployment.
-    * `apprunner-instance-role`: Runtime role granting `bedrock:InvokeModel` permissions, enabling secure AI forecasting without managing AWS Access Keys.
-* **App Runner:** Configured with `1024 CPU` and `2048 Memory` units to handle the resource demands of the Spring Boot runtime and Virtual Thread scheduling.
-
-### 2. Containerization Strategy
-Both the frontend and backend utilize **Multi-stage Docker builds**:
-* **Backend:** Leverages a Build stage (Maven) and a Runtime stage (Amazon Corretto 21) to keep production images lean and secure.
-* **Frontend:** Uses a Node build environment followed by an Nginx runtime stage to serve static assets with optimized header configurations.
-
-### 3. Automated Deployment Workflow
-Deployment is orchestrated via the `deploy.sh` script, which automates the transition from local code to cloud execution:
-
+#### Backend Configuration
 ```bash
-# 1. Build & Package
-./mvnw clean package -DskipTests
+# Database
+DB_URL=jdbc:postgresql://localhost:5432/inventory_saas
+DB_USERNAME=your_username
+DB_PASSWORD=your_password
 
-# 2. Authenticate & Push
-aws ecr get-login-password --region ap-southeast-1 | docker login --username AWS --password-stdin [AWS_ACCOUNT_ID].dkr.ecr.ap-southeast-1.amazonaws.com
+# Authentication
+CLERK_ISSUER_URI=https://your-clerk-domain.com
+CLERK_SECRET_KEY=your_clerk_secret_key
 
-# 3. Build & Push Images
-docker build -t saas-backend ./saas-manager
-docker push [AWS_ACCOUNT_ID][.dkr.ecr.ap-southeast-1.amazonaws.com/saas-backend:latest](https://.dkr.ecr.ap-southeast-1.amazonaws.com/saas-backend:latest)
+# Cache
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_PASSWORD=your_redis_password
+
+# AI Services
+SPRING_AI_BEDROCK_AWS_REGION=ap-southeast-1
+AWS_REGION=ap-southeast-1
 ```
 
-### 4. Environment Variables & Secrets
-Security is maintained by injecting sensitive configurations directly into the App Runner service environment:
-* **Database:** `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` (Supabase).
-* **Auth:** `CLERK_ISSUER_URI`, `CLERK_SECRET_KEY`.
-* **Cache:** `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD`.
-* **AI Region:** `SPRING_AI_BEDROCK_AWS_REGION` explicitly set to `ap-southeast-1`.
+#### Frontend Configuration
+```bash
+# Clerk Authentication
+VITE_CLERK_PUBLISHABLE_KEY=your_clerk_publishable_key
 
----
+# Redis (for rate limiting)
+VITE_UPSTASH_REDIS_REST_URL=your_redis_rest_url
+VITE_UPSTASH_REDIS_REST_TOKEN=your_redis_rest_token
+```
 
-### 🛠️ Local Setup
-To run the stack locally:
-1. Ensure **Docker Desktop** is running.
-2. Run `docker-compose up -d` to start local **PostgreSQL** and **Redis** instances.
-3. Use the `dev` Spring profile to connect to local dependencies.
+## Deployment
+
+### Local Development
+For local development, use the provided Docker Compose configuration:
+```bash
+docker-compose up -d
+```
+
+This starts:
+- PostgreSQL database on port 5432
+- Redis cache on port 6379
+- Application services with local configuration
+
+### AWS Production Deployment
+
+#### 1. Infrastructure Setup
+```bash
+cd terraform
+terraform init
+terraform apply
+```
+
+#### 2. Build and Deploy
+```bash
+# Deploy using the automated script
+./deploy.sh
+```
+
+The deployment process:
+1. Builds and pushes Docker images to ECR
+2. Provisions AWS App Runner services
+3. Configures environment variables and secrets
+4. Sets up monitoring and logging
+
+#### 3. Environment-Specific Configuration
+- **Development:** Uses local PostgreSQL and Redis
+- **Production:** Uses AWS RDS PostgreSQL and ElastiCache Redis
+- **AI Services:** Configurable between Ollama (local) and AWS Bedrock
+
+## Usage Guide
+
+### Dashboard Navigation
+The main dashboard provides:
+- **Overview:** Real-time inventory metrics and key performance indicators
+- **Forecast:** AI-powered demand predictions and trend analysis
+- **Analysis:** Deep dive into inventory patterns and recommendations
+
+### Core Workflows
+
+#### Inventory Management
+1. **Add Products:** Use the inventory view to add new products with SKU, categories, and pricing
+2. **Stock Adjustments:** Record stock movements with automatic audit trails
+3. **Threshold Management:** Set minimum stock levels for automated alerts
+4. **Activity Monitoring:** Track all inventory changes through comprehensive logs
+
+#### AI-Powered Insights
+1. **Natural Language Queries:** Ask questions about inventory levels, forecasts, and trends
+2. **Demand Forecasting:** View AI-generated predictions for stock replenishment
+3. **Velocity Analysis:** Understand product movement patterns and optimize inventory
+4. **Recommendations:** Receive AI-driven suggestions for inventory optimization
+
+#### Multi-Tenant Operations
+1. **Organization Management:** Switch between organizations seamlessly
+2. **Role-Based Access:** Configure appropriate permissions for team members
+3. **Usage Tracking:** Monitor API usage and stay within subscription limits
+4. **Data Isolation:** Ensure complete separation of tenant data
+
+## Development Guidelines
+
+### Code Quality Standards
+- Follow language-specific style guides (Java Code Conventions, ESLint rules)
+- Maintain test coverage above 80% for critical business logic
+- Use meaningful commit messages following conventional commit format
+- Document complex business logic and architectural decisions
+
+### Testing Requirements
+- Unit tests for all service layer components
+- Integration tests for database operations
+- End-to-end tests for critical user workflows
+- Performance tests for AI service integrations
+
+## Troubleshooting
+
+### Common Solutions
+
+#### Database Connection Issues
+- Verify PostgreSQL is running and accessible
+- Check connection string and credentials
+- Ensure database schema is properly initialized
+- Review tenant isolation configuration
+
+#### Authentication Setup Problems
+- Verify Clerk configuration is correct
+- Check JWT token validation settings
+- Ensure proper CORS configuration
+- Review organization and user permissions
+
+#### AI Service Configuration Errors
+- Confirm Ollama service is running (for local development)
+- Verify AWS Bedrock credentials and permissions
+- Check AI model availability and configuration
+- Review rate limiting and caching settings
+
+#### Deployment Troubleshooting
+- Check AWS credentials and permissions
+- Verify Terraform state is properly configured
+- Review ECR repository permissions
+- Ensure App Runner service health checks pass
+
+### Performance Optimization
+- Monitor Redis cache hit rates
+- Review database query performance
+- Optimize AI service response times
+- Track memory usage in App Runner services
+
+## License and Support
+
+### License
+This project is licensed under the MIT License. See the LICENSE file for details.
+
+### Support Channels
+- **Documentation:** Comprehensive guides and API references
+- **Community:** GitHub Discussions for community support
+- **Issues:** GitHub Issues for bug reports and feature requests
+- **Enterprise:** Contact for enterprise support and custom implementations
+
+### Contributing
+We welcome contributions from the community. Please see the contributing guidelines for details on:
+- Development workflow
+- Code submission process
+- Issue reporting procedures
+- Community participation guidelines
