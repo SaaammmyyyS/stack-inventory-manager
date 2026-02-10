@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
+import org.springframework.lang.Nullable;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
@@ -20,6 +21,7 @@ public class WebConfig implements WebMvcConfigurer {
     private TenantInterceptor tenantInterceptor;
 
     @Autowired
+    @Nullable
     private RateLimitInterceptor rateLimitInterceptor;
 
     @Bean
@@ -33,9 +35,11 @@ public class WebConfig implements WebMvcConfigurer {
                 .addPathPatterns("/api/**")
                 .excludePathPatterns("/api/webhooks/**");
 
-        registry.addInterceptor(rateLimitInterceptor)
-                .addPathPatterns("/api/**")
-                .excludePathPatterns("/api/webhooks/**");
+        if (rateLimitInterceptor != null) {
+            registry.addInterceptor(rateLimitInterceptor)
+                    .addPathPatterns("/api/**")
+                    .excludePathPatterns("/api/webhooks/**");
+        }
     }
 
     @Override

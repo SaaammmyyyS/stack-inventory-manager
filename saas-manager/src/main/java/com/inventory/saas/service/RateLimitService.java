@@ -8,12 +8,14 @@ import io.lettuce.core.RedisClient;
 import io.lettuce.core.RedisURI;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.util.function.Supplier;
 
 @Service
+@Profile("!test-ollama")
 public class RateLimitService {
 
     private LettuceBasedProxyManager<byte[]> proxyManager;

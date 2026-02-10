@@ -14,16 +14,16 @@ public class IntentClassifier {
             return Intent.FILTERED_TRANSACTIONS;
         }
 
-        if (m.contains("stock level") || m.contains("stock levels") || m.contains("stock") || m.contains("inventory") || m.contains("in stock") || m.contains("what do i have")) {
-            return Intent.STOCK_SUMMARY;
-        }
-
         if (m.contains("recent") || m.contains("recent movements") || m.contains("movements") || m.contains("activity")) {
             return Intent.RECENT_TRANSACTIONS;
         }
 
         if (m.contains("low stock") || m.contains("restock") || m.contains("restocking")) {
             return Intent.LOW_STOCK;
+        }
+
+        if (m.contains("stock level") || m.contains("stock levels") || m.contains("stock") || m.contains("inventory") || m.contains("in stock") || m.contains("what do i have")) {
+            return Intent.STOCK_SUMMARY;
         }
 
         if (m.contains("forecast") || m.contains("runout") || m.contains("run out")) {

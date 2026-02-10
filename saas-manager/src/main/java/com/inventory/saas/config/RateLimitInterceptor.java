@@ -5,10 +5,12 @@ import com.inventory.saas.service.RateLimitService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
 @Component
+@Profile("!test-ollama")
 public class RateLimitInterceptor implements HandlerInterceptor {
 
     @Autowired
