@@ -61,6 +61,32 @@ const mergeJsonFragments = (fragments: any[]) => {
   return merged;
 };
 
+const ErrorFallbackMessage = ({ content, debugInfo }: { content: string; debugInfo?: any }) => (
+  <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+    <div className="flex items-center gap-2 mb-2">
+      <div className="w-2 h-2 rounded-full bg-red-500" />
+      <h4 className="font-medium text-red-800">Response Parsing Issue</h4>
+    </div>
+    <p className="text-red-700 text-sm mb-2">
+      I received a response but had trouble displaying it properly. Here's what I got:
+    </p>
+    <details className="text-sm">
+      <summary className="cursor-pointer text-red-600 font-medium mb-2">View Raw Response</summary>
+      <pre className="bg-white p-2 rounded text-xs overflow-auto max-h-32 border border-red-100">
+        {content}
+      </pre>
+    </details>
+    {debugInfo && (
+      <details className="text-sm mt-2">
+        <summary className="cursor-pointer text-red-600 font-medium mb-2">Debug Information</summary>
+        <pre className="bg-white p-2 rounded text-xs overflow-auto max-h-32 border border-red-100">
+          {JSON.stringify(debugInfo, null, 2)}
+        </pre>
+      </details>
+    )}
+  </div>
+);
+
 const DebugResponse = ({ content, parsed }: { content: string; parsed: any }) => (
   <div className="border border-red-200 bg-red-50 p-4 rounded-lg mb-3">
     <h4 className="font-medium text-red-800 mb-2 flex items-center gap-2">
@@ -115,11 +141,94 @@ const DebugResponse = ({ content, parsed }: { content: string; parsed: any }) =>
 const formatChatResponse = (content: string): { type: 'text' | 'transactions' | 'inventory' | 'forecast' | 'processing'; content: string; data?: any; isProcessing?: boolean; debugInfo?: any } => {
   if (!content) return { type: 'text', content: 'No response available.' };
 
-  const fencedMatch = content.match(/```json\s*([\s\S]*?)\s*```/i);
+  console.log('Raw response content:', content);
+
+  const fencedMatch = content.match(/```json\s*([\s\S\s]*?)\s*```/i);
   if (fencedMatch && fencedMatch[1]) {
     try {
       const parsed = JSON.parse(fencedMatch[1]);
       const debugInfo = { source: 'fenced_json', parsed };
+      console.log('Parsed JSON:', parsed);
+
+      if (parsed?.debug?.intent && parsed?.data) {
+        const intent = parsed.debug.intent;
+        const enhancedDebugInfo = {
+          ...debugInfo,
+          intent: intent,
+          entities: parsed.debug.entities,
+          data: parsed.data
+        };
+
+        console.log('Detected intent:', intent);
+        console.log('Data structure:', JSON.stringify(parsed.data, null, 2));
+
+        switch (intent) {
+          case 'FORECAST_QUERIES':
+            if (parsed.data?.data && Array.isArray(parsed.data.data)) {
+              const forecastData = parsed.data.data;
+              console.log('Forecast data detected:', forecastData.length, 'items');
+
+              if (forecastData.length > 0 && forecastData[0]?.itemName) {
+                return {
+                  type: 'forecast',
+                  content: parsed.data.summary || 'Inventory forecasts:',
+                  data: forecastData,
+                  isProcessing: false,
+                  debugInfo: enhancedDebugInfo,
+                };
+              }
+            }
+
+            if (parsed.data?.items && Array.isArray(parsed.data.items)) {
+              return {
+                type: 'forecast',
+                content: parsed.data.summary || 'Inventory forecasts:',
+                data: parsed.data.items,
+                isProcessing: false,
+                debugInfo: enhancedDebugInfo,
+              };
+            }
+            break;
+
+          case 'INVENTORY_QUERIES':
+            if (parsed.data?.data && Array.isArray(parsed.data.data)) {
+              return {
+                type: 'inventory',
+                content: parsed.data.summary || 'Current inventory status:',
+                data: parsed.data.data,
+                isProcessing: false,
+                debugInfo: enhancedDebugInfo,
+              };
+            }
+
+            if (parsed.data?.items && Array.isArray(parsed.data.items)) {
+              return {
+                type: 'inventory',
+                content: parsed.data.summary || 'Current inventory status:',
+                data: parsed.data.items,
+                isProcessing: false,
+                debugInfo: enhancedDebugInfo,
+              };
+            }
+            break;
+
+          case 'TRANSACTION_QUERIES':
+            if (parsed.data?.data && Array.isArray(parsed.data.data)) {
+              return {
+                type: 'transactions',
+                content: parsed.data.summary || 'Here are the recent stock movements:',
+                data: parsed.data.data,
+                isProcessing: false,
+                debugInfo: enhancedDebugInfo,
+              };
+            }
+            break;
+        }
+
+        if (typeof parsed.data?.summary === 'string') {
+          return { type: 'text', content: parsed.data.summary, isProcessing: false, debugInfo: enhancedDebugInfo };
+        }
+      }
 
       if (parsed?.debug && parsed?.data) {
         const enhancedDebugInfo = {
@@ -130,13 +239,36 @@ const formatChatResponse = (content: string): { type: 'text' | 'transactions' | 
         };
 
         if (parsed.data?.data && Array.isArray(parsed.data.data)) {
-          return {
-            type: 'transactions',
-            content: parsed.data.summary || 'Here are the recent stock movements:',
-            data: parsed.data.data,
-            isProcessing: false,
-            debugInfo: enhancedDebugInfo,
-          };
+          const firstItem = parsed.data.data[0];
+          if (firstItem?.itemName || firstItem?.daysRemaining !== undefined || firstItem?.healthStatus) {
+            return {
+              type: 'forecast',
+              content: parsed.data.summary || 'Inventory forecasts:',
+              data: parsed.data.data,
+              isProcessing: false,
+              debugInfo: enhancedDebugInfo,
+            };
+          }
+
+          if (firstItem?.type || firstItem?.amount !== undefined) {
+            return {
+              type: 'transactions',
+              content: parsed.data.summary || 'Here are the recent stock movements:',
+              data: parsed.data.data,
+              isProcessing: false,
+              debugInfo: enhancedDebugInfo,
+            };
+          }
+
+          if (firstItem?.name || firstItem?.quantity !== undefined) {
+            return {
+              type: 'inventory',
+              content: parsed.data.summary || 'Current inventory status:',
+              data: parsed.data.data,
+              isProcessing: false,
+              debugInfo: enhancedDebugInfo,
+            };
+          }
         }
 
         if (parsed.data?.items && Array.isArray(parsed.data.items)) {
@@ -159,8 +291,12 @@ const formatChatResponse = (content: string): { type: 'text' | 'transactions' | 
           };
         }
 
-        // Detect forecast responses with structured data
         if (parsed.data?.data && Array.isArray(parsed.data.data) && parsed.data.data[0]?.itemName) {
+          console.log('Forecast detected, data items:', parsed.data.data.length);
+          console.log('Data items:', parsed.data.data);
+          console.log('Data structure:', JSON.stringify(parsed.data.data, null, 2));
+          console.log('Data type:', Array.isArray(parsed.data.data) ? 'array' : typeof parsed.data.data);
+          console.log('First item:', parsed.data.data[0]);
           return {
             type: 'forecast',
             content: parsed.data.summary || 'Inventory forecasts:',
@@ -199,7 +335,7 @@ const formatChatResponse = (content: string): { type: 'text' | 'transactions' | 
         return { type: 'text', content: parsed.summary, isProcessing: false, debugInfo };
       }
     } catch (e) {
-      // Fall through to best-effort parsing
+      console.warn('JSON parsing failed:', e);
     }
   }
 
@@ -251,17 +387,23 @@ const formatChatResponse = (content: string): { type: 'text' | 'transactions' | 
   }
 
   let cleanContent = content
-    .replace(/```json[\s\S]*?```/g, '') // Remove JSON code blocks
-    .replace(/```[\s\S]*?```/g, '') // Remove other code blocks
-    .replace(/\{[\s\S]*\}/g, '') // Remove JSON objects
-    .replace(/^\s*[\r\n]/gm, '') // Remove empty lines
+    .replace(/```json[\s\S]*?```/g, '')
+    .replace(/```[\s\S]*?```/g, '')
+    .replace(/\{[\s\S]*\}/g, '')
+    .replace(/^\s*[\r\n]/gm, '')
     .trim();
 
   if (parsedData && parsedData.summary) {
     cleanContent = parsedData.summary;
   }
 
-  return { type: 'text', content: cleanContent, isProcessing: false, debugInfo };
+  const finalDebugInfo = debugInfo || {
+    source: 'fallback',
+    message: 'No structured data found',
+    originalContent: content.substring(0, 200) + (content.length > 200 ? '...' : '')
+  };
+
+  return { type: 'text', content: cleanContent, isProcessing: false, debugInfo: finalDebugInfo };
 };
 
 const TransactionMessage = ({ data }: { data: any[] }) => (
@@ -293,89 +435,113 @@ const TransactionMessage = ({ data }: { data: any[] }) => (
   </div>
 );
 
-const ForecastMessage = ({ data }: { data: any[] }) => (
-  <div className="space-y-3">
-    {data.map((item, index) => (
-      <div key={index} className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
-        <div className={`px-4 py-3 border-b border-slate-100 ${
-          item.daysRemaining <= 4 ? 'bg-red-50' :
-          item.daysRemaining <= 15 ? 'bg-yellow-50' :
-          item.daysRemaining <= 30 ? 'bg-orange-50' :
-          'bg-green-50'
-        }`}>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${
-                item.daysRemaining <= 4 ? 'bg-red-500' :
-                item.daysRemaining <= 15 ? 'bg-yellow-500' :
-                item.daysRemaining <= 30 ? 'bg-orange-500' :
-                'bg-green-500'
-              }`} />
-              <h3 className="font-semibold text-slate-900">
-                {item.itemName || 'Unknown Item'}
-              </h3>
-            </div>
-            <div className={`px-2 py-1 rounded-full text-xs font-medium ${
-              item.daysRemaining <= 4 ? 'bg-red-100 text-red-700' :
-              item.daysRemaining <= 15 ? 'bg-yellow-100 text-yellow-700' :
-              item.daysRemaining <= 30 ? 'bg-orange-100 text-orange-700' :
-              'bg-green-100 text-green-700'
-            }`}>
-              {item.daysRemaining <= 4 ? 'CRITICAL' :
-               item.daysRemaining <= 15 ? 'WARNING' :
-               item.daysRemaining <= 30 ? 'CAUTION' : 'STABLE'}
-            </div>
-          </div>
-        </div>
+const ForecastMessage = ({ data }: { data: any[] }) => {
+  if (!Array.isArray(data) || data.length === 0) {
+    return (
+      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+        <p className="text-yellow-800 text-sm">No forecast data available.</p>
+      </div>
+    );
+  }
 
-        <div className="p-4">
-          <div className="grid grid-cols-2 gap-4 mb-3">
-            <div>
-              <div className="text-sm text-slate-500 mb-1">Current Status</div>
-              <div className="flex items-baseline gap-1">
-                <span className="text-2xl font-bold text-slate-900">{item.currentQuantity}</span>
-                <span className="text-sm text-slate-500">units</span>
-              </div>
-              {item.sku && (
-                <div className="text-xs text-slate-400 mt-1">SKU: {item.sku}</div>
-              )}
-            </div>
+  return (
+    <div className="space-y-3">
+      {data.map((item, index) => {
+        if (!item || typeof item !== 'object') {
+          console.warn(`Invalid forecast item at index ${index}:`, item);
+          return null;
+        }
 
-            <div>
-              <div className="text-sm text-slate-500 mb-1">Forecast</div>
-              <div className="flex items-center gap-2">
-                <Package size={16} className="text-slate-400" />
-                <span className={`font-medium ${
-                  item.daysRemaining <= 4 ? 'text-red-600' :
-                  item.daysRemaining <= 15 ? 'text-yellow-600' :
-                  item.daysRemaining <= 30 ? 'text-orange-600' :
-                  'text-green-600'
-                }`}>
-                  {item.daysRemaining} days remaining
-                </span>
-              </div>
-              {item.healthStatus && (
-                <div className="text-xs text-slate-500 mt-1">Status: {item.healthStatus}</div>
-              )}
-            </div>
-          </div>
+        const itemName = item.itemName || item.name || 'Unknown Item';
+        const daysRemaining = item.daysRemaining ?? item.days_remaining ?? null;
+        const currentQuantity = item.currentQuantity ?? item.current_quantity ?? 0;
+        const sku = item.sku;
+        const healthStatus = item.healthStatus ?? item.health_status;
+        const suggestedThreshold = item.suggestedThreshold ?? item.suggested_threshold;
 
-          {item.suggestedThreshold !== undefined && (
-            <div className="bg-slate-50 rounded-lg p-3 border border-slate-100">
+        const getStatusInfo = () => {
+          if (healthStatus) {
+            switch (healthStatus.toUpperCase()) {
+              case 'CRITICAL': return { color: 'red', label: 'CRITICAL', days: 4 };
+              case 'WARNING': return { color: 'yellow', label: 'WARNING', days: 15 };
+              case 'STABLE': return { color: 'green', label: 'STABLE', days: 999 };
+              default: return { color: 'gray', label: healthStatus, days: 30 };
+            }
+          }
+
+          if (daysRemaining !== null) {
+            if (daysRemaining <= 4) return { color: 'red', label: 'CRITICAL', days: 4 };
+            if (daysRemaining <= 15) return { color: 'yellow', label: 'WARNING', days: 15 };
+            if (daysRemaining <= 30) return { color: 'orange', label: 'CAUTION', days: 30 };
+            return { color: 'green', label: 'STABLE', days: 999 };
+          }
+
+          return { color: 'gray', label: 'UNKNOWN', days: 999 };
+        };
+
+        const statusInfo = getStatusInfo();
+
+        return (
+          <div key={index} className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
+            <div className={`px-4 py-3 border-b border-slate-100 bg-${statusInfo.color}-50`}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-                  <span className="text-sm font-medium text-slate-700">Suggested Threshold</span>
+                  <div className={`w-2 h-2 rounded-full bg-${statusInfo.color}-500`} />
+                  <h3 className="font-semibold text-slate-900">
+                    {itemName}
+                  </h3>
                 </div>
-                <span className="text-lg font-bold text-blue-600">{item.suggestedThreshold}</span>
+                <div className={`px-2 py-1 rounded-full text-xs font-medium bg-${statusInfo.color}-100 text-${statusInfo.color}-700`}>
+                  {statusInfo.label}
+                </div>
               </div>
             </div>
-          )}
-        </div>
-      </div>
-    ))}
-  </div>
-);
+
+            <div className="p-4">
+              <div className="grid grid-cols-2 gap-4 mb-3">
+                <div>
+                  <div className="text-sm text-slate-500 mb-1">Current Status</div>
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-2xl font-bold text-slate-900">{currentQuantity}</span>
+                    <span className="text-sm text-slate-500">units</span>
+                  </div>
+                  {sku && (
+                    <div className="text-xs text-slate-400 mt-1">SKU: {sku}</div>
+                  )}
+                </div>
+
+                <div>
+                  <div className="text-sm text-slate-500 mb-1">Forecast</div>
+                  <div className="flex items-center gap-2">
+                    <Package size={16} className="text-slate-400" />
+                    <span className={`font-medium text-${statusInfo.color}-600`}>
+                      {daysRemaining !== null ? `${daysRemaining} days remaining` : 'No forecast data'}
+                    </span>
+                  </div>
+                  {healthStatus && (
+                    <div className="text-xs text-slate-500 mt-1">Status: {healthStatus}</div>
+                  )}
+                </div>
+              </div>
+
+              {suggestedThreshold !== undefined && suggestedThreshold !== null && (
+                <div className="bg-slate-50 rounded-lg p-3 border border-slate-100">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                      <span className="text-sm font-medium text-slate-700">Suggested Threshold</span>
+                    </div>
+                    <span className="text-lg font-bold text-blue-600">{suggestedThreshold}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
 
 const InventoryMessage = ({ data }: { data: any[] }) => (
   <div className="space-y-2">
@@ -543,6 +709,10 @@ export function InventoryChatBot() {
                   ) : msg.role === "assistant" && debugMode && msg.debugInfo ? (
                     <div className="debug-response">
                       <DebugResponse content={msg.content} parsed={msg.debugInfo} />
+                    </div>
+                  ) : msg.role === "assistant" && msg.debugInfo && !msg.data ? (
+                    <div>
+                      <ErrorFallbackMessage content={msg.content} debugInfo={msg.debugInfo} />
                     </div>
                   ) : (
                     <p className="whitespace-pre-wrap break-words">{msg.content}</p>
