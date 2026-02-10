@@ -15,7 +15,7 @@ import { toast } from "sonner";
 type Message = {
   role: "user" | "assistant";
   content: string;
-  type?: 'text' | 'transactions' | 'inventory' | 'processing';
+  type?: 'text' | 'transactions' | 'inventory' | 'forecast' | 'processing';
   data?: any;
   isProcessing?: boolean;
   debugInfo?: any;
@@ -112,7 +112,7 @@ const DebugResponse = ({ content, parsed }: { content: string; parsed: any }) =>
   </div>
 );
 
-const formatChatResponse = (content: string): { type: 'text' | 'transactions' | 'inventory' | 'processing'; content: string; data?: any; isProcessing?: boolean; debugInfo?: any } => {
+const formatChatResponse = (content: string): { type: 'text' | 'transactions' | 'inventory' | 'forecast' | 'processing'; content: string; data?: any; isProcessing?: boolean; debugInfo?: any } => {
   if (!content) return { type: 'text', content: 'No response available.' };
 
   const fencedMatch = content.match(/```json\s*([\s\S]*?)\s*```/i);
@@ -152,6 +152,17 @@ const formatChatResponse = (content: string): { type: 'text' | 'transactions' | 
         if (parsed.data?.data && Array.isArray(parsed.data.data) && parsed.data.data[0]?.runoutDate) {
           return {
             type: 'inventory',
+            content: parsed.data.summary || 'Inventory forecasts:',
+            data: parsed.data.data,
+            isProcessing: false,
+            debugInfo: enhancedDebugInfo,
+          };
+        }
+
+        // Detect forecast responses with structured data
+        if (parsed.data?.data && Array.isArray(parsed.data.data) && parsed.data.data[0]?.itemName) {
+          return {
+            type: 'forecast',
             content: parsed.data.summary || 'Inventory forecasts:',
             data: parsed.data.data,
             isProcessing: false,
@@ -276,6 +287,90 @@ const TransactionMessage = ({ data }: { data: any[] }) => (
           tx.type === 'STOCK_IN' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
         }`}>
           {tx.type === 'STOCK_IN' ? '+' : '-'}{tx.amount}
+        </div>
+      </div>
+    ))}
+  </div>
+);
+
+const ForecastMessage = ({ data }: { data: any[] }) => (
+  <div className="space-y-3">
+    {data.map((item, index) => (
+      <div key={index} className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
+        <div className={`px-4 py-3 border-b border-slate-100 ${
+          item.daysRemaining <= 4 ? 'bg-red-50' :
+          item.daysRemaining <= 15 ? 'bg-yellow-50' :
+          item.daysRemaining <= 30 ? 'bg-orange-50' :
+          'bg-green-50'
+        }`}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className={`w-2 h-2 rounded-full ${
+                item.daysRemaining <= 4 ? 'bg-red-500' :
+                item.daysRemaining <= 15 ? 'bg-yellow-500' :
+                item.daysRemaining <= 30 ? 'bg-orange-500' :
+                'bg-green-500'
+              }`} />
+              <h3 className="font-semibold text-slate-900">
+                {item.itemName || 'Unknown Item'}
+              </h3>
+            </div>
+            <div className={`px-2 py-1 rounded-full text-xs font-medium ${
+              item.daysRemaining <= 4 ? 'bg-red-100 text-red-700' :
+              item.daysRemaining <= 15 ? 'bg-yellow-100 text-yellow-700' :
+              item.daysRemaining <= 30 ? 'bg-orange-100 text-orange-700' :
+              'bg-green-100 text-green-700'
+            }`}>
+              {item.daysRemaining <= 4 ? 'CRITICAL' :
+               item.daysRemaining <= 15 ? 'WARNING' :
+               item.daysRemaining <= 30 ? 'CAUTION' : 'STABLE'}
+            </div>
+          </div>
+        </div>
+
+        <div className="p-4">
+          <div className="grid grid-cols-2 gap-4 mb-3">
+            <div>
+              <div className="text-sm text-slate-500 mb-1">Current Status</div>
+              <div className="flex items-baseline gap-1">
+                <span className="text-2xl font-bold text-slate-900">{item.currentQuantity}</span>
+                <span className="text-sm text-slate-500">units</span>
+              </div>
+              {item.sku && (
+                <div className="text-xs text-slate-400 mt-1">SKU: {item.sku}</div>
+              )}
+            </div>
+
+            <div>
+              <div className="text-sm text-slate-500 mb-1">Forecast</div>
+              <div className="flex items-center gap-2">
+                <Package size={16} className="text-slate-400" />
+                <span className={`font-medium ${
+                  item.daysRemaining <= 4 ? 'text-red-600' :
+                  item.daysRemaining <= 15 ? 'text-yellow-600' :
+                  item.daysRemaining <= 30 ? 'text-orange-600' :
+                  'text-green-600'
+                }`}>
+                  {item.daysRemaining} days remaining
+                </span>
+              </div>
+              {item.healthStatus && (
+                <div className="text-xs text-slate-500 mt-1">Status: {item.healthStatus}</div>
+              )}
+            </div>
+          </div>
+
+          {item.suggestedThreshold !== undefined && (
+            <div className="bg-slate-50 rounded-lg p-3 border border-slate-100">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                  <span className="text-sm font-medium text-slate-700">Suggested Threshold</span>
+                </div>
+                <span className="text-lg font-bold text-blue-600">{item.suggestedThreshold}</span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     ))}
@@ -439,6 +534,11 @@ export function InventoryChatBot() {
                     <div>
                       <p className="whitespace-pre-wrap break-words mb-3">{msg.content}</p>
                       <InventoryMessage data={msg.data} />
+                    </div>
+                  ) : msg.role === "assistant" && msg.type === 'forecast' && msg.data ? (
+                    <div>
+                      <p className="whitespace-pre-wrap break-words mb-3">{msg.content}</p>
+                      <ForecastMessage data={msg.data} />
                     </div>
                   ) : msg.role === "assistant" && debugMode && msg.debugInfo ? (
                     <div className="debug-response">

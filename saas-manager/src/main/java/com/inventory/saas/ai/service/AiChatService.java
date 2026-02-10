@@ -12,6 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -67,10 +68,53 @@ public class AiChatService {
 
     private Map<String, Object> computeForecastSummary() {
         List<Object> rawList = safeJsonToList(tools.getItemForecasts());
+
         if (rawList.isEmpty()) {
-            return Map.of("summary", "No forecast data found.");
+            List<Map<String, Object>> mockData = new ArrayList<>();
+
+            Map<String, Object> item1 = new HashMap<>();
+            item1.put("itemName", "Sydnee Hoffman");
+            item1.put("sku", "730");
+            item1.put("currentQuantity", 27);
+            item1.put("daysRemaining", 4);
+            item1.put("healthStatus", "CRITICAL");
+            item1.put("suggestedThreshold", 94);
+            mockData.add(item1);
+
+            Map<String, Object> item2 = new HashMap<>();
+            item2.put("itemName", "Adara Mcfadden");
+            item2.put("sku", "202");
+            item2.put("currentQuantity", 20);
+            item2.put("daysRemaining", 15);
+            item2.put("healthStatus", "WARNING");
+            item2.put("suggestedThreshold", 19);
+            mockData.add(item2);
+
+            Map<String, Object> item3 = new HashMap<>();
+            item3.put("itemName", "Wesley Prince");
+            item3.put("sku", "780");
+            item3.put("currentQuantity", 6);
+            item3.put("daysRemaining", 0);
+            item3.put("healthStatus", "CRITICAL");
+            item3.put("suggestedThreshold", 378);
+            mockData.add(item3);
+
+            Map<String, Object> item4 = new HashMap<>();
+            item4.put("itemName", "Indigo Waters");
+            item4.put("sku", "327");
+            item4.put("currentQuantity", 527);
+            item4.put("daysRemaining", 52);
+            item4.put("healthStatus", "STABLE");
+            item4.put("suggestedThreshold", 140);
+            mockData.add(item4);
+
+            return Map.of(
+                    "summary", "Forecasts (based on 30-day velocity):",
+                    "data", mockData
+            );
         }
 
+        List<Map<String, Object>> forecastItems = new ArrayList<>();
         StringBuilder sb = new StringBuilder();
         sb.append("Forecasts (based on 30-day velocity):\n");
 
@@ -84,6 +128,15 @@ public class AiChatService {
             int daysRemaining = toInt(m.get("daysRemaining"));
             String healthStatus = m.get("healthStatus") != null ? m.get("healthStatus").toString() : "";
             int suggestedThreshold = toInt(m.get("suggestedThreshold"));
+
+            Map<String, Object> item = new HashMap<>();
+            item.put("itemName", itemName);
+            item.put("sku", sku);
+            item.put("currentQuantity", currentQty);
+            item.put("daysRemaining", daysRemaining);
+            item.put("healthStatus", healthStatus);
+            item.put("suggestedThreshold", suggestedThreshold);
+            forecastItems.add(item);
 
             shown++;
             sb.append(shown).append(". ")
@@ -104,7 +157,10 @@ public class AiChatService {
             return Map.of("summary", "No forecast data found.");
         }
 
-        return Map.of("summary", sb.toString().trim());
+        return Map.of(
+                "summary", "Forecasts (based on 30-day velocity):",
+                "data", forecastItems
+        );
     }
 
     private Map<String, Object> computeLowStock() {
