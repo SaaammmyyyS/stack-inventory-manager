@@ -19,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -40,6 +41,10 @@ public class InventoryService {
             return repository.findByFilters(tenantId, search, category, pageable);
         }
         return repository.findByTenantIdAndDeletedFalse(tenantId, pageable);
+    }
+
+    public Optional<InventoryItem> getItemByIdAndTenant(UUID id, String tenantId) {
+        return repository.findByIdAndTenantIdAndDeletedFalse(id, tenantId);
     }
 
     @Transactional

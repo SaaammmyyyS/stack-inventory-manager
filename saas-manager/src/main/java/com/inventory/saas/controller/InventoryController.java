@@ -8,6 +8,9 @@ import com.inventory.saas.service.InventoryService;
 import com.inventory.saas.service.BillingGuard;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -72,6 +75,17 @@ public class InventoryController {
                 .build());
     }
 
+    @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MEMBER', 'USER')")
+    public ResponseEntity<InventoryItemDTO> getById(
+            @RequestHeader("X-Tenant-ID") String tenantId,
+            @PathVariable UUID id) {
+        return service.getItemByIdAndTenant(id, tenantId)
+                .map(this::convertToDto)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<InventoryItemDTO> create(
@@ -84,7 +98,8 @@ public class InventoryController {
 
         dto.setTenantId(tenantId);
         InventoryItem item = convertToEntity(dto);
-        return ResponseEntity.ok(convertToDto(service.saveItem(item)));
+        InventoryItem savedItem = service.saveItem(item);
+        return ResponseEntity.status(HttpStatus.CREATED).body(convertToDto(savedItem));
     }
 
     @PutMapping("/{id}")
