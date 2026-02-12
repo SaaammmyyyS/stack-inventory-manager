@@ -15,7 +15,7 @@ import { toast } from "sonner";
 type Message = {
   role: "user" | "assistant";
   content: string;
-  type?: 'text' | 'transactions' | 'inventory' | 'forecast' | 'processing';
+  type?: 'text' | 'transactions' | 'inventory' | 'forecast' | 'processing' | 'conversational';
   data?: any;
   isProcessing?: boolean;
   debugInfo?: any;
@@ -60,6 +60,16 @@ const mergeJsonFragments = (fragments: any[]) => {
 
   return merged;
 };
+
+const ConversationalMessage = ({ content }: { content: string }) => (
+  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
+    <div className="flex items-center gap-2 mb-2">
+      <div className="w-2 h-2 rounded-full bg-blue-500" />
+      <span className="text-sm font-medium text-blue-800">Assistant Response</span>
+    </div>
+    <div className="text-sm text-gray-700 whitespace-pre-wrap">{content}</div>
+  </div>
+);
 
 const ErrorFallbackMessage = ({ content, debugInfo }: { content: string; debugInfo?: any }) => (
   <div className="bg-red-50 border border-red-200 rounded-lg p-4">
@@ -138,17 +148,30 @@ const DebugResponse = ({ content, parsed }: { content: string; parsed: any }) =>
   </div>
 );
 
-const formatChatResponse = (content: string): { type: 'text' | 'transactions' | 'inventory' | 'forecast' | 'processing'; content: string; data?: any; isProcessing?: boolean; debugInfo?: any } => {
+const formatChatResponse = (content: string): { type: 'text' | 'transactions' | 'inventory' | 'forecast' | 'processing' | 'conversational'; content: string; data?: any; isProcessing?: boolean; debugInfo?: any } => {
   if (!content) return { type: 'text', content: 'No response available.' };
 
   console.log('Raw response content:', content);
+
+  if (!content.includes('```') && !content.includes('{') && !content.includes('debug')) {
+    const lowerContent = content.toLowerCase();
+    if (lowerContent.includes('hello') || lowerContent.includes('hi') ||
+        lowerContent.includes('thank') || lowerContent.includes('goodbye') ||
+        lowerContent.includes('help') || lowerContent.includes('assist')) {
+      return {
+        type: 'conversational',
+        content: content,
+        isProcessing: false,
+        debugInfo: { source: 'conversational_detection' }
+      };
+    }
+  }
 
   const fencedMatch = content.match(/```json\s*([\s\S\s]*?)\s*```/i);
   if (fencedMatch && fencedMatch[1]) {
     try {
       const parsed = JSON.parse(fencedMatch[1]);
       const debugInfo = { source: 'fenced_json', parsed };
-      console.log('Parsed JSON:', parsed);
 
       if (parsed?.debug?.intent && parsed?.data) {
         const intent = parsed.debug.intent;
@@ -421,9 +444,9 @@ const formatChatResponse = (content: string): { type: 'text' | 'transactions' | 
   }
 
   let cleanContent = content
-    .replace(/```json[\s\S]*?```/g, '')
-    .replace(/```[\s\S]*?```/g, '')
-    .replace(/\{[\s\S]*\}/g, '')
+    .replace(/```json[\s\S\s]*?```/g, '')
+    .replace(/```[\s\S\s]*?```/g, '')
+    .replace(/\{[\s\S\s]*\}/g, '')
     .replace(/^\s*[\r\n]/gm, '')
     .trim();
 
@@ -724,6 +747,11 @@ export function InventoryChatBot() {
                         <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
                         <span className="text-xs text-slate-500">Processing your request...</span>
                       </div>
+                    </div>
+                  ) : msg.role === "assistant" && msg.type === 'conversational' ? (
+                    <div>
+                      <p className="whitespace-pre-wrap break-words mb-3">{msg.content}</p>
+                      <ConversationalMessage content={msg.content} />
                     </div>
                   ) : msg.role === "assistant" && msg.type === 'transactions' && msg.data ? (
                     <div>

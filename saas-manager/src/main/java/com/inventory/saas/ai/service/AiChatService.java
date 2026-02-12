@@ -4,8 +4,10 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.inventory.saas.ai.context.TransactionContextBuilder;
 import com.inventory.saas.ai.extraction.EntityExtractor;
+import com.inventory.saas.ai.intent.AIIntentClassifier;
 import com.inventory.saas.ai.intent.IntentClassifier;
 import com.inventory.saas.ai.model.Intent;
+import com.inventory.saas.ai.service.ConversationManager;
 import com.inventory.saas.config.TenantContext;
 import com.inventory.saas.service.InventoryAgentTools;
 import org.slf4j.Logger;
@@ -22,22 +24,25 @@ public class AiChatService {
 
     private static final Logger logger = LoggerFactory.getLogger(AiChatService.class);
 
-    private final InventoryAgentTools tools;
+    private final ConversationManager conversationManager;
     private final TransactionContextBuilder transactionContextBuilder;
+    private final InventoryAgentTools tools;
     private final ObjectMapper objectMapper;
 
-    private final IntentClassifier intentClassifier;
+    private final AIIntentClassifier aiIntentClassifier;
     private final EntityExtractor entityExtractor;
 
-    public AiChatService(InventoryAgentTools tools,
+    public AiChatService(ConversationManager conversationManager,
                          TransactionContextBuilder transactionContextBuilder,
+                         InventoryAgentTools tools,
                          ObjectMapper objectMapper,
-                         IntentClassifier intentClassifier,
+                         AIIntentClassifier aiIntentClassifier,
                          EntityExtractor entityExtractor) {
-        this.tools = tools;
+        this.conversationManager = conversationManager;
         this.transactionContextBuilder = transactionContextBuilder;
+        this.tools = tools;
         this.objectMapper = objectMapper;
-        this.intentClassifier = intentClassifier;
+        this.aiIntentClassifier = aiIntentClassifier;
         this.entityExtractor = entityExtractor;
     }
 
@@ -46,12 +51,18 @@ public class AiChatService {
             TenantContext.setTenantId(tenantId);
         }
 
-        Intent intent = intentClassifier.classifyBasicIntent(userMessage);
+        AIIntentClassifier.ClassificationResult classificationResult = aiIntentClassifier.classifyIntent(userMessage);
+        Intent intent = classificationResult.intent();
         Map<String, String> entities = entityExtractor.extractBasicEntities(userMessage);
 
-        logger.info("Detected intent: {} with entities: {} for tenant: {}", intent, entities, tenantId);
+        logger.info("Detected intent: {} with confidence: {} and entities: {} for tenant: {}",
+                   intent, classificationResult.confidence(), entities, tenantId);
 
         try {
+            if (aiIntentClassifier.isConversationalIntent(intent)) {
+                return conversationManager.handleConversationalIntent(tenantId, intent, userMessage);
+            }
+
             return switch (intent) {
                 case STOCK_SUMMARY -> wrapToolResult(intent, entities, safeJsonToMap(tools.getCurrentStockSummary()));
                 case RECENT_TRANSACTIONS -> wrapToolResult(intent, entities, safeJsonToList(tools.getRecentTransactions()));
@@ -59,6 +70,7 @@ public class AiChatService {
                 case LOW_STOCK -> wrapToolResult(intent, entities, computeLowStock());
                 case FILTERED_TRANSACTIONS -> wrapToolResult(intent, entities, computeFilteredTransactions(tenantId, entities));
                 case OTHER -> wrapText(intent, entities, "Please ask about stock levels, recent movements, low stock items, forecasts, or recording a stock adjustment.");
+                default -> wrapText(intent, entities, "I'm here to help with inventory management. How can I assist you?");
             };
         } catch (Exception e) {
             logger.warn("Chat error tenant={} intent={} message={}", tenantId, intent, e.getMessage(), e);
@@ -72,47 +84,9 @@ public class AiChatService {
         List<Object> rawList = safeJsonToList(tools.getItemForecasts());
 
         if (rawList.isEmpty()) {
-            List<Map<String, Object>> mockData = new ArrayList<>();
-
-            Map<String, Object> item1 = new HashMap<>();
-            item1.put("itemName", "Sydnee Hoffman");
-            item1.put("sku", "730");
-            item1.put("currentQuantity", 27);
-            item1.put("daysRemaining", 4);
-            item1.put("healthStatus", "CRITICAL");
-            item1.put("suggestedThreshold", 94);
-            mockData.add(item1);
-
-            Map<String, Object> item2 = new HashMap<>();
-            item2.put("itemName", "Adara Mcfadden");
-            item2.put("sku", "202");
-            item2.put("currentQuantity", 20);
-            item2.put("daysRemaining", 15);
-            item2.put("healthStatus", "WARNING");
-            item2.put("suggestedThreshold", 19);
-            mockData.add(item2);
-
-            Map<String, Object> item3 = new HashMap<>();
-            item3.put("itemName", "Wesley Prince");
-            item3.put("sku", "780");
-            item3.put("currentQuantity", 6);
-            item3.put("daysRemaining", 0);
-            item3.put("healthStatus", "CRITICAL");
-            item3.put("suggestedThreshold", 378);
-            mockData.add(item3);
-
-            Map<String, Object> item4 = new HashMap<>();
-            item4.put("itemName", "Indigo Waters");
-            item4.put("sku", "327");
-            item4.put("currentQuantity", 527);
-            item4.put("daysRemaining", 52);
-            item4.put("healthStatus", "STABLE");
-            item4.put("suggestedThreshold", 140);
-            mockData.add(item4);
-
             return Map.of(
-                    "summary", "Forecasts (based on 30-day velocity):",
-                    "data", mockData
+                    "summary", "No forecast data available. Need at least 7 days of transaction history to generate accurate forecasts.",
+                    "data", List.of()
             );
         }
 

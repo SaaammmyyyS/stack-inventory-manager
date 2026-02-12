@@ -1,0 +1,170 @@
+GREETING	Hello
+GREETING	Hi there
+GREETING	Hey
+GREETING	Good morning
+GREETING	Good afternoon
+GREETING	Good evening
+GREETING	Hi
+GREETING	Hello
+GREETING	Hey there
+GREETING	Hi everyone
+
+FAREWELL	Goodbye
+FAREWELL	Bye
+FAREWELL	See you later
+FAREWELL	Farewell
+FAREWELL	Take care
+FAREWELL	Goodbye
+FAREWELL	See you
+FAREWELL	Later
+
+THANKS	Thank you
+THANKS	Thanks
+THANKS	Thanks a lot
+THANKS	I appreciate it
+THANKS	Thank you so much
+THANKS	Great thanks
+THANKS	Thanks for the help
+
+HELP	What can you do
+HELP	How do you work
+HELP	I need help
+HELP	Can you help me
+HELP	What are your capabilities
+HELP	Help me
+HELP	Assistance needed
+HELP	How can I use this
+
+CLARIFICATION	I don't understand
+CLARIFICATION	Can you clarify
+CLARIFICATION	What do you mean
+CLARIFICATION	Could you explain
+CLARIFICATION	I'm confused
+CLARIFICATION	Can you rephrase that
+CLARIFICATION	Not sure I follow
+
+SMALL_TALK	How are you
+SMALL_TALK	What's your name
+SMALL_TALK	Who are you
+SMALL_TALK	How's the weather
+SMALL_TALK	What time is it
+SMALL_TALK	Tell me about yourself
+SMALL_TALK	Are you real
+SMALL_TALK	Where are you from
+
+STOCK_SUMMARY	Show me stock levels
+STOCK_SUMMARY	What do I have in inventory
+STOCK_SUMMARY	Current inventory status
+STOCK_SUMMARY	How many items are available
+STOCK_SUMMARY	What's in stock
+STOCK_SUMMARY	Inventory overview
+STOCK_SUMMARY	Show me my products
+STOCK_SUMMARY	Current goods count
+STOCK_SUMMARY	Stock summary
+STOCK_SUMMARY	Items available
+STOCK_SUMMARY	Product count
+STOCK_SUMMARY	Goods on hand
+STOCK_SUMMARY	Current goods
+STOCK_SUMMARY	Inventory levels
+STOCK_SUMMARY	Stock status
+STOCK_SUMMARY	What's available
+STOCK_SUMMARY	Show inventory
+STOCK_SUMMARY	Check stock levels
+STOCK_SUMMARY	Current stock
+STOCK_SUMMARY	Inventory count
+STOCK_SUMMARY	Available items
+STOCK_SUMMARY	Stock on hand
+
+RECENT_TRANSACTIONS	Show me recent transactions
+RECENT_TRANSACTIONS	Recent stock movements
+RECENT_TRANSACTIONS	What's been happening with inventory
+RECENT_TRANSACTIONS	Latest activity
+RECENT_TRANSACTIONS	Recent changes
+RECENT_TRANSACTIONS	Transaction history
+RECENT_TRANSACTIONS	Movement history
+RECENT_TRANSACTIONS	Recent updates
+RECENT_TRANSACTIONS	Latest transactions
+RECENT_TRANSACTIONS	Recent records
+RECENT_TRANSACTIONS	Activity log
+RECENT_TRANSACTIONS	Recent operations
+RECENT_TRANSACTIONS	What's updated recently
+RECENT_TRANSACTIONS	Recent stock movements
+RECENT_TRANSACTIONS	Show transactions
+RECENT_TRANSACTIONS	View transactions
+RECENT_TRANSACTIONS	Transaction history
+RECENT_TRANSACTIONS	Movements
+RECENT_TRANSACTIONS	Activity
+RECENT_TRANSACTIONS	History
+RECENT_TRANSACTIONS	Logs
+RECENT_TRANSACTIONS	Records
+
+LOW_STOCK	Low stock items
+LOW_STOCK	What needs to be restocked
+LOW_STOCK	Items running low
+LOW_STOCK	Depleted products
+LOW_STOCK	Need to order
+LOW_STOCK	Restock needed
+LOW_STOCK	Stock shortage
+LOW_STOCK	Insufficient inventory
+LOW_STOCK	Out of stock
+LOW_STOCK	Items to reorder
+LOW_STOCK	Low inventory
+LOW_STOCK	Critical stock
+LOW_STOCK	Stock alert
+LOW_STOCK	Reorder point
+LOW_STOCK	Minimum stock
+LOW_STOCK	Show low stock
+LOW_STOCK	Items needing restock
+LOW_STOCK	Running low on items
+LOW_STOCK	Stock depletion
+LOW_STOCK	Need to replenish
+
+FORECAST_QUERIES	Forecast
+FORECAST_QUERIES	Predict stock needs
+FORECAST_QUERIES	When will items run out
+FORECAST_QUERIES	Future inventory requirements
+FORECAST_QUERIES	Stock forecast
+FORECAST_QUERIES	Inventory forecast
+FORECAST_QUERIES	Depletion date
+FORECAST_QUERIES	Days remaining
+FORECAST_QUERIES	Future stock needs
+FORECAST_QUERIES	Stock projection
+FORECAST_QUERIES	Inventory outlook
+FORECAST_QUERIES	Runout prediction
+FORECAST_QUERIES	When to reorder
+FORECAST_QUERIES	Stock timeline
+FORECAST_QUERIES	Future inventory
+FORECAST_QUERIES	Prediction model
+FORECAST_QUERIES	Run out date
+FORECAST_QUERIES	How many days until empty
+FORECAST_QUERIES	Predict when I'll need more
+FORECAST_QUERIES	Forecast predictions
+FORECAST_QUERIES	Stock predictions
+
+FILTERED_TRANSACTIONS	Transactions by John
+FILTERED_TRANSACTIONS	History for product X
+FILTERED_TRANSACTIONS	Show movements by user
+FILTERED_TRANSACTIONS	Activity for specific item
+FILTERED_TRANSACTIONS	Filter transactions by person
+FILTERED_TRANSACTIONS	Specific transactions
+FILTERED_TRANSACTIONS	Transaction filter
+FILTERED_TRANSACTIONS	History by person
+FILTERED_TRANSACTIONS	Activity for item
+FILTERED_TRANSACTIONS	Filtered history
+FILTERED_TRANSACTIONS	Show transactions for
+FILTERED_TRANSACTIONS	Transactions by
+FILTERED_TRANSACTIONS	History for
+FILTERED_TRANSACTIONS	Movements by
+FILTERED_TRANSACTIONS	Filter by
+FILTERED_TRANSACTIONS	Search transactions
+FILTERED_TRANSACTIONS	Find transactions by
+
+OTHER	What's the weather
+OTHER	Tell me a joke
+OTHER	Who won the game
+OTHER	What's for dinner
+OTHER	Random question
+OTHER	Unrelated request
+OTHER	Non-inventory query
+OTHER	Off topic
+OTHER	Not about inventory
