@@ -31,12 +31,14 @@ public class AiChatService {
 
     public AiChatService(InventoryAgentTools tools,
                          TransactionContextBuilder transactionContextBuilder,
-                         ObjectMapper objectMapper) {
+                         ObjectMapper objectMapper,
+                         IntentClassifier intentClassifier,
+                         EntityExtractor entityExtractor) {
         this.tools = tools;
         this.transactionContextBuilder = transactionContextBuilder;
         this.objectMapper = objectMapper;
-        this.intentClassifier = new IntentClassifier();
-        this.entityExtractor = new EntityExtractor();
+        this.intentClassifier = intentClassifier;
+        this.entityExtractor = entityExtractor;
     }
 
     public String chat(String tenantId, String userMessage) {

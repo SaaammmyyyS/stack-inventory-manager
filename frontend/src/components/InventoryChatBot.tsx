@@ -212,11 +212,45 @@ const formatChatResponse = (content: string): { type: 'text' | 'transactions' | 
             }
             break;
 
-          case 'TRANSACTION_QUERIES':
+          case 'LOW_STOCK':
+            if (parsed.data?.items && Array.isArray(parsed.data.items)) {
+              return {
+                type: 'inventory',
+                content: parsed.data.summary || 'Low stock items:',
+                data: parsed.data.items,
+                isProcessing: false,
+                debugInfo: enhancedDebugInfo,
+              };
+            }
+
+            if (parsed.data?.data && Array.isArray(parsed.data.data)) {
+              return {
+                type: 'inventory',
+                content: parsed.data.summary || 'Low stock items:',
+                data: parsed.data.data,
+                isProcessing: false,
+                debugInfo: enhancedDebugInfo,
+              };
+            }
+            break;
+
+          case 'RECENT_TRANSACTIONS':
             if (parsed.data?.data && Array.isArray(parsed.data.data)) {
               return {
                 type: 'transactions',
                 content: parsed.data.summary || 'Here are the recent stock movements:',
+                data: parsed.data.data,
+                isProcessing: false,
+                debugInfo: enhancedDebugInfo,
+              };
+            }
+            break;
+
+          case 'FILTERED_TRANSACTIONS':
+            if (parsed.data?.data && Array.isArray(parsed.data.data)) {
+              return {
+                type: 'transactions',
+                content: parsed.data.summary || 'Filtered transactions:',
                 data: parsed.data.data,
                 isProcessing: false,
                 debugInfo: enhancedDebugInfo,
