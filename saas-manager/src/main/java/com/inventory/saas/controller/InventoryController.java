@@ -91,9 +91,9 @@ public class InventoryController {
     public ResponseEntity<InventoryItemDTO> create(
             @AuthenticationPrincipal Jwt jwt,
             @RequestHeader("X-Tenant-ID") String tenantId,
+            @RequestHeader(value = "X-Organization-Plan", defaultValue = "free") String plan,
             @RequestBody InventoryItemDTO dto) {
 
-        String plan = "free";
         billingGuard.validateSkuLimit(tenantId, plan);
 
         dto.setTenantId(tenantId);
