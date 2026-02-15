@@ -1,14 +1,17 @@
-name: Java CI with Maven
+name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "dev" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "main", "dev" ]
 
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        branch: [main, dev]
 
     steps:
     - uses: actions/checkout@v4
@@ -20,6 +23,26 @@ jobs:
         distribution: 'corretto'
         cache: maven
 
-    - name: Build and Run Tests
+    - name: Cache Maven dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.m2
+        key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+        restore-keys: |
+          ${{ runner.os }}-m2-
+
+    - name: Run Tests
       run: mvn clean test -B
       working-directory: saas-manager
+
+    - name: Generate Test Report
+      if: always()
+      run: |
+        echo "Tests completed on branch ${{ matrix.branch }}"
+
+    - name: Upload Test Results
+      if: failure()
+      uses: actions/upload-artifact@v3
+      with:
+        name: test-results-${{ matrix.branch }}
+        path: saas-manager/target/surefire-reports/

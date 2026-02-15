@@ -128,7 +128,8 @@ resource "aws_apprunner_service" "backend" {
           REDIS_HOST       = var.redis_host
           REDIS_PORT       = var.redis_port
           REDIS_PASSWORD   = var.redis_password
-          REDIS_SSL         = "true"
+          REDIS_SSL        = "true"
+          SPRING_PROFILES_ACTIVE = "prod"
           SPRING_AI_BEDROCK_AWS_REGION = "ap-southeast-1"
           AWS_REGION                  = "ap-southeast-1"
         }
