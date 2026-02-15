@@ -16,8 +16,6 @@ class IntentClassifierTest {
 
     @BeforeEach
     void setUp() {
-        // Note: In a real implementation, this would load the trained model
-        // For now, we'll test the fallback behavior
         mlClassifier = new MLIntentClassifier();
         ConversationManager conversationManager = mock(ConversationManager.class);
         EntityExtractor entityExtractor = mock(EntityExtractor.class);
