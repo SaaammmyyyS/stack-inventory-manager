@@ -20,17 +20,10 @@ export function useJWTAuth() {
 
           const jwtIsAdmin = payload.org_role === "org:admin";
           setIsAdmin(jwtIsAdmin);
-          
+
           const jwtPlan = (payload.org_plan || 'free').toLowerCase();
           setPlan(jwtPlan);
 
-          console.log('JWT Auth parsed:', {
-            isAdmin: jwtIsAdmin,
-            plan: jwtPlan,
-            orgId: payload.org_id,
-            orgRole: payload.org_role,
-            orgPlan: payload.org_plan
-          });
         } else {
           console.warn('No token available for JWT parsing');
           setIsAdmin(false);

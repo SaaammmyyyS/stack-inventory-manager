@@ -79,41 +79,38 @@ export function IntelligenceHub({ isPro, tenantId }: IntelligenceHubProps) {
   }, [isPro, runAnalysis, SESSION_KEY]);
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-      <div className="lg:col-span-8 space-y-8">
-        <div className="w-full h-[500px]">
-          <StockVelocityChart transactions={activities} />
-        </div>
-
-        <div className="bg-white border border-slate-200 rounded-[2.5rem] p-8 shadow-sm">
-          <div className="flex items-center justify-between mb-8">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-slate-50 text-slate-900 rounded-2xl border border-slate-100">
-                <History size={20} strokeWidth={2.5} />
-              </div>
-              <div>
-                <h3 className="text-xl font-black text-slate-900 tracking-tight">Operations Feed</h3>
-                <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.2em] mt-0.5">Live Inventory Stream</p>
-              </div>
+    <div className="space-y-8">
+      <div className="w-full min-h-[500px] overflow-hidden">
+        <StockVelocityChart transactions={activities} />
+      </div>
+      <div className="bg-white border border-slate-200 rounded-[2.5rem] p-8 shadow-sm">
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-slate-50 text-slate-900 rounded-2xl border border-slate-100">
+              <History size={20} strokeWidth={2.5} />
+            </div>
+            <div>
+              <h3 className="text-xl font-black text-slate-900 tracking-tight">Operations Feed</h3>
+              <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.2em] mt-0.5">Live Inventory Stream</p>
             </div>
           </div>
+        </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-4">
-            {isActivityLoading ? (
-              <div className="col-span-2 flex justify-center py-20">
-                <Loader2 className="animate-spin text-slate-200" size={40} />
-              </div>
-            ) : activities.length > 0 ? (
-              activities.slice(0, 10).map((log) => (
-                <ActivityItem key={log.id} log={log} />
-              ))
-            ) : (
-              <div className="col-span-2 text-center py-20 bg-slate-50 rounded-3xl border border-dashed border-slate-200">
-                <AlertCircle className="mx-auto text-slate-300 mb-2" />
-                <p className="text-slate-500 font-bold text-sm">No recent movement detected.</p>
-              </div>
-            )}
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-4">
+          {isActivityLoading ? (
+            <div className="col-span-2 flex justify-center py-20">
+              <Loader2 className="animate-spin text-slate-200" size={40} />
+            </div>
+          ) : activities.length > 0 ? (
+            activities.slice(0, 10).map((log) => (
+              <ActivityItem key={log.id} log={log} />
+            ))
+          ) : (
+            <div className="col-span-2 text-center py-20 bg-slate-50 rounded-3xl border border-dashed border-slate-200">
+              <AlertCircle className="mx-auto text-slate-300 mb-2" />
+              <p className="text-slate-500 font-bold text-sm">No recent movement detected.</p>
+            </div>
+          )}
         </div>
       </div>
 

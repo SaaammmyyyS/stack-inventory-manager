@@ -1,21 +1,18 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo } from 'react';
 import {
   XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, AreaChart, Area
 } from 'recharts';
 import { StockTransaction } from '../../types/inventory';
 import { Activity } from 'lucide-react';
+import { useContainerDimensions } from '@/hooks/useContainerDimensions';
 
 interface Props {
   transactions: StockTransaction[];
 }
 
 export function StockVelocityChart({ transactions }: Props) {
-  const [isMounted, setIsMounted] = useState(false);
-
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
+  const { containerRef, dimensions, isMeasured } = useContainerDimensions();
 
   const chartData = useMemo(() => {
     if (!transactions || transactions.length === 0) return [];
@@ -25,7 +22,7 @@ export function StockVelocityChart({ transactions }: Props) {
     );
 
     let currentLevel = 0;
-    return sorted.map((t) => {
+    const data = sorted.map((t) => {
       currentLevel += t.quantityChange;
       return {
         time: new Intl.DateTimeFormat('en-US', {
@@ -35,6 +32,8 @@ export function StockVelocityChart({ transactions }: Props) {
         quantity: currentLevel,
       };
     });
+
+    return data;
   }, [transactions]);
 
   return (
@@ -51,9 +50,9 @@ export function StockVelocityChart({ transactions }: Props) {
         </div>
       </div>
 
-      <div className="flex-1 w-full min-h-[400px] relative">
-        {isMounted && chartData.length > 0 ? (
-          <ResponsiveContainer width="100%" height="100%">
+      <div ref={containerRef} className="flex-1 w-full min-h-[400px] relative">
+        {isMeasured && chartData.length > 0 && dimensions.width > 0 && dimensions.height > 0 ? (
+          <ResponsiveContainer width={dimensions.width} height={dimensions.height}>
             <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
               <defs>
                 <linearGradient id="colorQty" x1="0" y1="0" x2="0" y2="1">
@@ -99,13 +98,17 @@ export function StockVelocityChart({ transactions }: Props) {
               />
             </AreaChart>
           </ResponsiveContainer>
-        ) : !isMounted ? (
+        ) : !isMeasured ? (
           <div className="h-full w-full flex items-center justify-center">
-            <div className="animate-pulse text-slate-400 text-xs font-black uppercase tracking-widest">Initialising Chart...</div>
+            <div className="animate-pulse text-slate-400 text-xs font-black uppercase tracking-widest">Measuring Container...</div>
+          </div>
+        ) : chartData.length === 0 ? (
+          <div className="h-full w-full flex items-center justify-center">
+            <div className="text-slate-400 text-xs font-black uppercase tracking-widest">No activity data yet</div>
           </div>
         ) : (
           <div className="h-full w-full flex items-center justify-center">
-             <div className="text-slate-400 text-xs font-black uppercase tracking-widest">No activity data yet</div>
+            <div className="text-slate-400 text-xs font-black uppercase tracking-widest">Waiting for container dimensions...</div>
           </div>
         )}
       </div>
