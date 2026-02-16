@@ -84,9 +84,9 @@ export function useInventoryHandlers() {
             );
 
             if (recentStockMovements.length > 0) {
-              console.log(`✅ Verified ${targetItem.type} transaction recorded for ${targetItem.name}`);
+              console.log(`Verified ${targetItem.type} transaction recorded for ${targetItem.name}`);
             } else {
-              console.warn(`⚠️ Could not verify recent ${targetItem.type} transaction for ${targetItem.name}`);
+              console.warn(`Could not verify recent ${targetItem.type} transaction for ${targetItem.name}`);
             }
           } catch (error) {
             console.error('Failed to verify transaction:', error);
