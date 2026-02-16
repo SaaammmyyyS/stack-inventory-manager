@@ -73,15 +73,15 @@ public class InventoryService {
     }
 
     @Transactional
-    @CacheEvict(value = "ai-analysis", key = "#item.tenantId")
-    public StockTransaction recordMovement(UUID id, Integer amount, String type, String reason, String performedBy) {
-        logger.info("Recording stock movement: itemId={}, amount={}, type={}, reason={}, performedBy={}",
-            id, amount, type, reason, performedBy);
+    @CacheEvict(value = "ai-analysis", key = "#tenantId")
+    public StockTransaction recordMovement(UUID id, Integer amount, String type, String reason, String performedBy, String tenantId) {
+        logger.info("Recording stock movement: itemId={}, amount={}, type={}, reason={}, performedBy={}, tenantId={}",
+            id, amount, type, reason, performedBy, tenantId);
 
-        InventoryItem item = repository.findById(id)
+        InventoryItem item = repository.findByIdAndTenantIdAndDeletedFalse(id, tenantId)
                 .orElseThrow(() -> new ResourceNotFoundException("Inventory item not found"));
 
-        evictAiCache(item.getTenantId());
+        evictAiCache(tenantId);
 
         int adjustment = type.equalsIgnoreCase("STOCK_OUT") ? -Math.abs(amount) : Math.abs(amount);
         item.setQuantity(item.getQuantity() + adjustment);
@@ -89,7 +89,7 @@ public class InventoryService {
 
         StockTransaction transaction = new StockTransaction();
         transaction.setInventoryItem(item);
-        transaction.setTenantId(item.getTenantId());
+        transaction.setTenantId(tenantId);
         transaction.setQuantityChange(adjustment);
         transaction.setType(type.toUpperCase());
         transaction.setReason(reason);
@@ -97,7 +97,7 @@ public class InventoryService {
 
         StockTransaction saved = transactionRepository.save(transaction);
         logger.info("Saved transaction: id={}, type={}, quantityChange={}, itemId={}, tenantId={}",
-            saved.getId(), saved.getType(), saved.getQuantityChange(), item.getId(), item.getTenantId());
+            saved.getId(), saved.getType(), saved.getQuantityChange(), item.getId(), tenantId);
 
         return saved;
     }
