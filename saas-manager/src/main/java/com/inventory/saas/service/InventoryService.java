@@ -73,7 +73,11 @@ public class InventoryService {
     }
 
     @Transactional
+    @CacheEvict(value = "ai-analysis", key = "#item.tenantId")
     public StockTransaction recordMovement(UUID id, Integer amount, String type, String reason, String performedBy) {
+        logger.info("Recording stock movement: itemId={}, amount={}, type={}, reason={}, performedBy={}",
+            id, amount, type, reason, performedBy);
+
         InventoryItem item = repository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Inventory item not found"));
 
@@ -91,7 +95,11 @@ public class InventoryService {
         transaction.setReason(reason);
         transaction.setPerformedBy(performedBy != null ? performedBy : "System");
 
-        return transactionRepository.save(transaction);
+        StockTransaction saved = transactionRepository.save(transaction);
+        logger.info("Saved transaction: id={}, type={}, quantityChange={}, itemId={}, tenantId={}",
+            saved.getId(), saved.getType(), saved.getQuantityChange(), item.getId(), item.getTenantId());
+
+        return saved;
     }
 
     @Transactional
@@ -160,5 +168,20 @@ public class InventoryService {
                 .itemName((String) row.get("itemName"))
                 .build()
         ).collect(Collectors.toList());
+    }
+
+    public List<StockTransaction> getAllTransactionsForDebug(String tenantId) {
+        logger.info("Retrieving all transactions for debug - tenant: {}", tenantId);
+        List<StockTransaction> transactions = transactionRepository.findAllTransactionsByTenant(tenantId);
+        logger.info("Found {} total transactions for tenant {}", transactions.size(), tenantId);
+
+        Map<String, Long> typeCounts = transactions.stream()
+            .collect(Collectors.groupingBy(
+                t -> t.getType() != null ? t.getType() : "NULL",
+                Collectors.counting()
+            ));
+        logger.info("Transaction type distribution for debug: {}", typeCounts);
+
+        return transactions;
     }
 }

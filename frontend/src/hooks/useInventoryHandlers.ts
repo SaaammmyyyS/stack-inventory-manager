@@ -67,11 +67,32 @@ export function useInventoryHandlers() {
 
     toast.promise(stockPromise, {
       loading: `Updating stock for ${targetItem.name}...`,
-      success: (isSuccessful) => {
+      success: async (isSuccessful) => {
         if (isSuccessful === false) throw new Error("Server rejected update");
 
         sessionStorage.removeItem(`ai_unlocked_${tenantId}`);
         inventory.fetchRecentActivity();
+
+        setTimeout(async () => {
+          try {
+            const response = await inventory.api.get('/api/transactions/debug/all');
+            const transactions = response.data || [];
+            const recentStockMovements = transactions.filter((t: any) =>
+              t.type === targetItem.type &&
+              t.itemName === targetItem.name &&
+              new Date(t.createdAt) > new Date(Date.now() - 30000)
+            );
+
+            if (recentStockMovements.length > 0) {
+              console.log(`✅ Verified ${targetItem.type} transaction recorded for ${targetItem.name}`);
+            } else {
+              console.warn(`⚠️ Could not verify recent ${targetItem.type} transaction for ${targetItem.name}`);
+            }
+          } catch (error) {
+            console.error('Failed to verify transaction:', error);
+          }
+        }, 2000);
+
         return `Stock ${targetItem.type === 'STOCK_IN' ? 'replenished' : 'deducted'} for ${targetItem.name}`;
       },
       error: (err) => {

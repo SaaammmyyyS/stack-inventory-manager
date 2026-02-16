@@ -172,7 +172,7 @@ export function AIAnalysisPanel({
             <InsightsPanel analysis={analysis.analysis} />
           )}
           {activeTab === 'metrics' && (
-            <MetricsDisplay data={analysis.data} />
+            <MetricsDisplay data={analysis.data} tenantId={tenantId} />
           )}
           {activeTab === 'export' && (
             <AnalysisExport analysis={analysis} tenantId={tenantId} />

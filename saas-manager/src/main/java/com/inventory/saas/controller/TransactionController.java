@@ -62,4 +62,14 @@ public class TransactionController {
                 .map(this::convertToDto)
                 .collect(Collectors.toList());
     }
+
+    @GetMapping("/debug/all")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_MEMBER')")
+    public List<StockMovementResponseDTO> getAllTransactionsForDebug(
+            @RequestHeader("X-Tenant-ID") String tenantId
+    ) {
+        return inventoryService.getAllTransactionsForDebug(tenantId).stream()
+                .map(this::convertToDto)
+                .collect(Collectors.toList());
+    }
 }

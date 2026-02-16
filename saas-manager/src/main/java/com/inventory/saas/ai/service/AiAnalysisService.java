@@ -430,14 +430,26 @@ public class AiAnalysisService {
     public InventorySummaryAnalysisDTO getGlobalAnalysis(String tenantId, String plan) {
         billingGuard.validateTokenBudget(tenantId, plan);
 
-        LocalDateTime ninetyDaysAgo = LocalDateTime.now().minusDays(90);
-        List<StockTransaction> history = transactionRepository.findAiAnalysisData(tenantId, ninetyDaysAgo);
+        LocalDateTime ninetyOneDaysAgo = LocalDateTime.now().minusDays(91);
+        LocalDateTime twentyFourHoursAgo = LocalDateTime.now().minusHours(24);
 
-        if (history.isEmpty()) {
+        List<StockTransaction> history = transactionRepository.findAiAnalysisData(tenantId, ninetyOneDaysAgo);
+
+        List<StockTransaction> veryRecentHistory = transactionRepository.findAllRecentByTenant(tenantId, twentyFourHoursAgo);
+
+        List<StockTransaction> allHistory = new ArrayList<>(history);
+        veryRecentHistory.stream()
+            .filter(tx -> !allHistory.contains(tx))
+            .forEach(allHistory::add);
+
+        logger.info("Analysis data retrieval: {} transactions from 91 days, {} from last 24h, {} total unique",
+            history.size(), veryRecentHistory.size(), allHistory.size());
+
+        if (allHistory.isEmpty()) {
             return createEmptyResponse("No transaction history found for analysis.");
         }
 
-        String dataFeed = history.stream()
+        String dataFeed = allHistory.stream()
                 .filter(t -> t.getInventoryItem() != null)
                 .map(t -> String.format("- Item: %s | Action: %s | Qty: %d",
                         t.getInventoryItem().getName(),
@@ -445,11 +457,11 @@ public class AiAnalysisService {
                         Math.abs(t.getQuantityChange())))
                 .collect(Collectors.joining("\n"));
 
-        Map<String, Object> basicStats = calculateBasicStatistics(history);
+        Map<String, Object> basicStats = calculateBasicStatistics(allHistory);
 
         if (!ollamaHealthService.isOllamaHealthy()) {
             logger.warn("Ollama is unhealthy for tenant {}, using rule-based analysis", tenantId);
-            return createRuleBasedAnalysis(tenantId, history, basicStats);
+            return createRuleBasedAnalysis(tenantId, allHistory, basicStats);
         }
 
         try {
@@ -466,7 +478,7 @@ public class AiAnalysisService {
 
             if (content.contains("REPLACE_WITH") || content.contains("[REPLACE_") || content.contains("placeholder")) {
                 logger.warn("AI returned placeholder response instead of using tool data for tenant {}", tenantId);
-                return createRuleBasedAnalysis(tenantId, history, basicStats);
+                return createRuleBasedAnalysis(tenantId, allHistory, basicStats);
             }
 
             String cleanedJson = extractJson(content);
@@ -475,7 +487,7 @@ public class AiAnalysisService {
             JsonNode root = objectMapper.readTree(cleanedJson);
             if (!root.has("status") && !root.has("summary")) {
                 logger.warn("AI response missing required fields for tenant {}", tenantId);
-                return createRuleBasedAnalysis(tenantId, history, basicStats);
+                return createRuleBasedAnalysis(tenantId, allHistory, basicStats);
             }
 
             InventorySummaryAnalysisDTO dto = new InventorySummaryAnalysisDTO();
@@ -528,7 +540,7 @@ public class AiAnalysisService {
 
         } catch (Exception e) {
             logger.error("AI Error for tenant {}: {}", tenantId, e.getMessage(), e);
-            return createRuleBasedAnalysis(tenantId, history, basicStats);
+            return createRuleBasedAnalysis(tenantId, allHistory, basicStats);
         }
     }
 
@@ -621,12 +633,29 @@ public class AiAnalysisService {
         Map<String, Object> stats = new HashMap<>();
 
         long totalTransactions = history.size();
+
+        logger.info("Calculating basic statistics for {} transactions", totalTransactions);
+        if (!history.isEmpty()) {
+            Map<String, Long> typeCounts = history.stream()
+                .collect(Collectors.groupingBy(
+                    t -> t.getType() != null ? t.getType() : "NULL",
+                    Collectors.counting()
+                ));
+            logger.info("Transaction type distribution: {}", typeCounts);
+
+            history.stream().limit(5).forEach(t ->
+                logger.debug("Transaction: id={}, type={}, quantity={}, item={}",
+                    t.getId(), t.getType(), t.getQuantityChange(),
+                    t.getInventoryItem() != null ? t.getInventoryItem().getName() : "null")
+            );
+        }
+
         long totalStockIn = history.stream()
-                .filter(t -> "STOCK_IN".equals(t.getType()))
+                .filter(t -> t.getType() != null && "STOCK_IN".equalsIgnoreCase(t.getType()))
                 .mapToLong(t -> Math.abs(t.getQuantityChange()))
                 .sum();
         long totalStockOut = history.stream()
-                .filter(t -> "STOCK_OUT".equals(t.getType()))
+                .filter(t -> t.getType() != null && "STOCK_OUT".equalsIgnoreCase(t.getType()))
                 .mapToLong(t -> Math.abs(t.getQuantityChange()))
                 .sum();
         long netMovement = totalStockIn - totalStockOut;
@@ -635,6 +664,9 @@ public class AiAnalysisService {
                 .map(t -> t.getInventoryItem().getId())
                 .distinct()
                 .count();
+
+        logger.info("Calculated stats: totalTransactions={}, totalStockIn={}, totalStockOut={}, netMovement={}, uniqueItems={}",
+            totalTransactions, totalStockIn, totalStockOut, netMovement, uniqueItems);
 
         stats.put("totalTransactions", totalTransactions);
         stats.put("totalStockIn", totalStockIn);
