@@ -5,10 +5,62 @@ import {
   AlertCircle
 } from "lucide-react";
 import { InventorySummary, StockTransaction } from "../../types/inventory";
+
+interface OverviewTabProps {
+  analysis: InventorySummary;
+}
+
+function OverviewTab({ analysis }: OverviewTabProps) {
+  return (
+    <div className="space-y-6">
+      <div className="bg-white/5 backdrop-blur-xl p-6 rounded-2xl border border-white/10 text-center">
+        <div className="relative w-20 h-20 mx-auto mb-4 flex items-center justify-center">
+          <svg className="w-full h-full transform -rotate-90">
+            <circle cx="40" cy="40" r="36" stroke="currentColor" strokeWidth="6" fill="transparent" className="text-white/5" />
+            <circle
+              cx="40" cy="40" r="36" stroke="currentColor" strokeWidth="6" fill="transparent"
+              strokeDasharray={226.19}
+              strokeDashoffset={226.19 - (226.19 * (analysis.healthScore || 0)) / 100}
+              strokeLinecap="round"
+              className="text-blue-500 transition-all duration-1000"
+            />
+          </svg>
+          <span className="absolute text-xl font-black">{analysis.healthScore}</span>
+        </div>
+        <div className="inline-block px-3 py-1 bg-blue-500/20 text-blue-400 rounded-full text-[10px] font-black uppercase mb-2">
+          {analysis.status}
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <h5 className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30 px-2">Narrative Summary</h5>
+        <p className="text-sm leading-relaxed font-bold italic text-white/80 bg-white/5 p-4 rounded-2xl">
+          "{analysis.summary}"
+        </p>
+      </div>
+
+      {analysis.urgentActions && analysis.urgentActions.length > 0 && (
+        <div className="space-y-3">
+          <h5 className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30 px-2">Critical Actions</h5>
+          <div className="space-y-2">
+            {analysis.urgentActions.map((action, i) => (
+              <div key={i} className="flex items-start gap-3 p-3 bg-white/5 border border-white/5 rounded-xl">
+                <CheckCircle2 size={12} className="text-blue-400 mt-1" />
+                <span className="text-xs text-white/70 font-bold">{action}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 import { StockVelocityChart } from "./StockVelocityChart";
 import { MetricsDisplay } from "./MetricsDisplay";
 import { InsightsPanel } from "./InsightsPanel";
 import { AnalysisExport } from "./AnalysisExport";
+import { IntelligenceHubTabs } from "./IntelligenceHubTabs";
+import { IntelligenceHubLayout } from "./IntelligenceHubLayout";
 import { useInventory } from "@/hooks/useInventory";
 import { toast } from "sonner";
 
@@ -24,6 +76,7 @@ export function IntelligenceHub({ isPro, tenantId }: IntelligenceHubProps) {
   const [analysis, setAnalysis] = useState<InventorySummary | null>(null);
   const [isActivityLoading, setIsActivityLoading] = useState(true);
   const [isAiLoading, setIsAiLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState('overview');
 
   const hasFetchedActivities = useRef(false);
   const hasAttemptedAiLoad = useRef(false);
@@ -82,12 +135,13 @@ export function IntelligenceHub({ isPro, tenantId }: IntelligenceHubProps) {
   }, [isPro, runAnalysis, SESSION_KEY]);
 
   return (
-    <div className="space-y-8">
-      <div className="w-full min-h-[500px] overflow-hidden">
+    <div className="space-y-6">
+      <div className="w-full h-80 overflow-hidden">
         <StockVelocityChart transactions={activities} />
       </div>
-      <div className="bg-white border border-slate-200 rounded-[2.5rem] p-8 shadow-sm">
-        <div className="flex items-center justify-between mb-8">
+
+      <div className="bg-white border border-slate-200 rounded-[2.5rem] p-6 shadow-sm">
+        <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">
             <div className="p-3 bg-slate-50 text-slate-900 rounded-2xl border border-slate-100">
               <History size={20} strokeWidth={2.5} />
@@ -99,17 +153,17 @@ export function IntelligenceHub({ isPro, tenantId }: IntelligenceHubProps) {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3">
           {isActivityLoading ? (
-            <div className="col-span-2 flex justify-center py-20">
-              <Loader2 className="animate-spin text-slate-200" size={40} />
+            <div className="col-span-2 flex justify-center py-12">
+              <Loader2 className="animate-spin text-slate-200" size={32} />
             </div>
           ) : activities.length > 0 ? (
-            activities.slice(0, 10).map((log) => (
+            activities.slice(0, 6).map((log) => (
               <ActivityItem key={log.id} log={log} />
             ))
           ) : (
-            <div className="col-span-2 text-center py-20 bg-slate-50 rounded-3xl border border-dashed border-slate-200">
+            <div className="col-span-2 text-center py-12 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
               <AlertCircle className="mx-auto text-slate-300 mb-2" />
               <p className="text-slate-500 font-bold text-sm">No recent movement detected.</p>
             </div>
@@ -117,11 +171,9 @@ export function IntelligenceHub({ isPro, tenantId }: IntelligenceHubProps) {
         </div>
       </div>
 
-      <div className="lg:col-span-4 sticky top-12">
-        <div className="bg-[#0F172A] rounded-[3rem] p-8 text-white shadow-2xl shadow-blue-900/20 relative overflow-hidden flex flex-col min-h-[720px]">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600/20 blur-[100px] -mr-32 -mt-32" />
-
-          <div className="flex items-center justify-between mb-10 relative z-10">
+      <IntelligenceHubLayout>
+        <div className="p-6 pb-4 border-b border-white/10">
+          <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <div className="p-2.5 bg-white/10 rounded-xl backdrop-blur-md border border-white/10">
                 <Sparkles size={18} className="text-blue-400" />
@@ -139,75 +191,55 @@ export function IntelligenceHub({ isPro, tenantId }: IntelligenceHubProps) {
             )}
           </div>
 
+          <IntelligenceHubTabs
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            hasInsights={!!analysis?.analysis?.length}
+            hasMetrics={!!analysis?.data?.length}
+          />
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-6">
           {isAiLoading && !analysis ? (
-            <div className="flex-1 flex flex-col items-center justify-center gap-6 relative z-10">
-              <Loader2 className="animate-spin text-blue-500" size={48} />
+            <div className="flex flex-col items-center justify-center gap-6 h-full">
+              <Loader2 className="animate-spin text-blue-500" size={40} />
               <p className="text-xs font-black uppercase tracking-[0.2em]">Analyzing Patterns...</p>
             </div>
           ) : analysis ? (
-            <div className="space-y-8 animate-in fade-in duration-700 relative z-10">
-              <div className="bg-white/5 backdrop-blur-xl p-8 rounded-[2.5rem] border border-white/10 text-center">
-                <div className="relative w-24 h-24 mx-auto mb-6 flex items-center justify-center">
-                  <svg className="w-full h-full transform -rotate-90">
-                    <circle cx="48" cy="48" r="44" stroke="currentColor" strokeWidth="6" fill="transparent" className="text-white/5" />
-                    <circle
-                      cx="48" cy="48" r="44" stroke="currentColor" strokeWidth="6" fill="transparent"
-                      strokeDasharray={276.46}
-                      strokeDashoffset={276.46 - (276.46 * (analysis.healthScore || 0)) / 100}
-                      strokeLinecap="round"
-                      className="text-blue-500 transition-all duration-1000"
-                    />
-                  </svg>
-                  <span className="absolute text-2xl font-black">{analysis.healthScore}</span>
-                </div>
-                <div className="inline-block px-3 py-1 bg-blue-500/20 text-blue-400 rounded-full text-[10px] font-black uppercase mb-2">
-                  {analysis.status}
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <h5 className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30 px-2">Narrative Summary</h5>
-                <p className="text-sm leading-relaxed font-bold italic text-white/80 bg-white/5 p-6 rounded-3xl">
-                  "{analysis.summary}"
-                </p>
-              </div>
-
-              <div className="space-y-4">
-                <h5 className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30 px-2">Critical Actions</h5>
-                <div className="space-y-3">
-                  {(analysis.urgentActions ?? []).map((action, i) => (
-                    <div key={i} className="flex items-start gap-4 p-4 bg-white/5 border border-white/5 rounded-2xl">
-                      <CheckCircle2 size={12} className="text-blue-400 mt-1" />
-                      <span className="text-xs text-white/70 font-bold">{action}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <MetricsDisplay data={analysis.data} />
-              <InsightsPanel analysis={analysis.analysis} />
-              <AnalysisExport analysis={analysis} tenantId={tenantId} />
+            <div className="space-y-6 animate-in fade-in duration-700">
+              {activeTab === 'overview' && (
+                <OverviewTab analysis={analysis} />
+              )}
+              {activeTab === 'insights' && (
+                <InsightsPanel analysis={analysis.analysis} />
+              )}
+              {activeTab === 'metrics' && (
+                <MetricsDisplay data={analysis.data} />
+              )}
+              {activeTab === 'export' && (
+                <AnalysisExport analysis={analysis} tenantId={tenantId} />
+              )}
             </div>
           ) : (
-            <div className="flex-1 flex flex-col items-center justify-center text-center px-6 relative z-10">
-               <div className="w-20 h-20 bg-blue-600/20 rounded-[2rem] flex items-center justify-center mb-8 border border-blue-500/20">
-                 <Sparkles className="text-blue-500" size={32} />
+            <div className="flex flex-col items-center justify-center text-center h-full">
+               <div className="w-16 h-16 bg-blue-600/20 rounded-2xl flex items-center justify-center mb-6 border border-blue-500/20">
+                 <Sparkles className="text-blue-500" size={28} />
                </div>
                <h4 className="text-lg font-black mb-3 tracking-tight">AI Readiness Engine</h4>
-               <p className="text-white/40 text-xs font-bold mb-10 leading-relaxed">
+               <p className="text-white/40 text-xs font-bold mb-8 leading-relaxed max-w-sm">
                  Connect your data patterns to unlock predictive health scores and stock velocity forecasting.
                </p>
                <button
                 onClick={() => runAnalysis(false)}
                 disabled={!isPro}
-                className="w-full bg-white text-slate-900 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-blue-50 transition-colors disabled:opacity-50"
+                className="w-full max-w-xs bg-white text-slate-900 py-3 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-blue-50 transition-colors disabled:opacity-50"
                >
                   {isPro ? "Launch Analysis" : "Pro Only Feature"}
                </button>
             </div>
           )}
         </div>
-      </div>
+      </IntelligenceHubLayout>
     </div>
   );
 }

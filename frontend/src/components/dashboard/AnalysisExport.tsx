@@ -97,36 +97,56 @@ export function AnalysisExport({ analysis, tenantId }: AnalysisExportProps) {
   };
 
   return (
-    <div className="flex gap-2 pt-2 border-t border-white/10">
-      <button
-        onClick={exportToJSON}
-        className="flex-1 flex items-center justify-center gap-2 p-3 bg-white/5 hover:bg-white/10 rounded-xl transition-colors group"
-      >
-        <Download size={14} className="text-blue-400 group-hover:text-blue-300" />
-        <span className="text-xs font-bold text-white/70 group-hover:text-white/90">
-          Export JSON
-        </span>
-      </button>
+    <div className="space-y-4">
+      <h5 className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30 px-2 mb-4">
+        Export & Share Analysis
+      </h5>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <button
+          onClick={exportToJSON}
+          className="flex items-center justify-center gap-2 p-4 bg-white/5 hover:bg-white/10 rounded-xl transition-all group border border-white/10"
+        >
+          <Download size={16} className="text-blue-400 group-hover:text-blue-300" />
+          <div className="text-left">
+            <span className="text-xs font-bold text-white/90 group-hover:text-white block">
+              Export JSON
+            </span>
+            <span className="text-[10px] text-white/50">Machine readable</span>
+          </div>
+        </button>
 
-      <button
-        onClick={exportToText}
-        className="flex-1 flex items-center justify-center gap-2 p-3 bg-white/5 hover:bg-white/10 rounded-xl transition-colors group"
-      >
-        <FileText size={14} className="text-green-400 group-hover:text-green-300" />
-        <span className="text-xs font-bold text-white/70 group-hover:text-white/90">
-          Export Report
-        </span>
-      </button>
+        <button
+          onClick={exportToText}
+          className="flex items-center justify-center gap-2 p-4 bg-white/5 hover:bg-white/10 rounded-xl transition-all group border border-white/10"
+        >
+          <FileText size={16} className="text-green-400 group-hover:text-green-300" />
+          <div className="text-left">
+            <span className="text-xs font-bold text-white/90 group-hover:text-white block">
+              Export Report
+            </span>
+            <span className="text-[10px] text-white/50">Human readable</span>
+          </div>
+        </button>
 
-      <button
-        onClick={shareAnalysis}
-        className="flex-1 flex items-center justify-center gap-2 p-3 bg-white/5 hover:bg-white/10 rounded-xl transition-colors group"
-      >
-        <Share2 size={14} className="text-purple-400 group-hover:text-purple-300" />
-        <span className="text-xs font-bold text-white/70 group-hover:text-white/90">
-          Share
-        </span>
-      </button>
+        <button
+          onClick={shareAnalysis}
+          className="flex items-center justify-center gap-2 p-4 bg-white/5 hover:bg-white/10 rounded-xl transition-all group border border-white/10"
+        >
+          <Share2 size={16} className="text-purple-400 group-hover:text-purple-300" />
+          <div className="text-left">
+            <span className="text-xs font-bold text-white/90 group-hover:text-white block">
+              Share
+            </span>
+            <span className="text-[10px] text-white/50">Quick sharing</span>
+          </div>
+        </button>
+      </div>
+
+      <div className="text-center pt-2">
+        <p className="text-[10px] text-white/40 font-bold">
+          Last exported: {new Date().toLocaleDateString()} at {new Date().toLocaleTimeString()}
+        </p>
+      </div>
     </div>
   );
 }

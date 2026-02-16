@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ChevronDown, ChevronUp, AlertTriangle, AlertCircle, Info, Lightbulb } from "lucide-react";
 
 interface InsightsPanelProps {
@@ -11,6 +11,12 @@ interface InsightsPanelProps {
 
 export function InsightsPanel({ analysis }: InsightsPanelProps) {
   const [expandedItems, setExpandedItems] = useState<Set<number>>(new Set());
+  const [allExpanded, setAllExpanded] = useState(false);
+
+  useEffect(() => {
+    setExpandedItems(new Set());
+    setAllExpanded(false);
+  }, [analysis]);
 
   if (!analysis || analysis.length === 0) {
     return null;
@@ -24,6 +30,17 @@ export function InsightsPanel({ analysis }: InsightsPanelProps) {
       newExpanded.add(index);
     }
     setExpandedItems(newExpanded);
+    setAllExpanded(newExpanded.size === analysis?.length);
+  };
+
+  const toggleAll = () => {
+    if (allExpanded) {
+      setExpandedItems(new Set());
+      setAllExpanded(false);
+    } else {
+      setExpandedItems(new Set(analysis?.map((_, i) => i) || []));
+      setAllExpanded(true);
+    }
   };
 
   const getImpactIcon = (impact: string) => {
@@ -67,16 +84,26 @@ export function InsightsPanel({ analysis }: InsightsPanelProps) {
 
   return (
     <div className="space-y-4">
-      <h5 className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30 px-2">
-        AI Insights & Analysis
-      </h5>
+      <div className="flex items-center justify-between">
+        <h5 className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30 px-2">
+          AI Insights & Analysis
+        </h5>
+        {analysis && analysis.length > 1 && (
+          <button
+            onClick={toggleAll}
+            className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40 hover:text-white/60 transition-colors"
+          >
+            {allExpanded ? 'Collapse All' : 'Expand All'}
+          </button>
+        )}
+      </div>
       <div className="space-y-3">
         {analysis.map((item, index) => {
           const isExpanded = expandedItems.has(index);
           return (
             <div
               key={index}
-              className={`border rounded-2xl p-4 backdrop-blur-sm transition-all duration-300 ${getImpactColor(
+              className={`border rounded-xl p-3 backdrop-blur-sm transition-all duration-300 ${getImpactColor(
                 item.impact
               )} ${isExpanded ? 'shadow-lg' : 'hover:shadow-md'}`}
             >
@@ -102,12 +129,12 @@ export function InsightsPanel({ analysis }: InsightsPanelProps) {
                       )}
                     </button>
                   </div>
-                  
+
                   <div className="space-y-2">
                     <p className="text-xs font-bold text-white/90 leading-relaxed">
                       {item.insight}
                     </p>
-                    
+
                     {isExpanded && (
                       <div className="animate-in fade-in duration-300 space-y-2 pt-2 border-t border-white/10">
                         <div className="flex items-start gap-2">
@@ -130,23 +157,6 @@ export function InsightsPanel({ analysis }: InsightsPanelProps) {
           );
         })}
       </div>
-      
-      {analysis.length > 0 && (
-        <div className="text-center pt-2">
-          <button
-            onClick={() => {
-              if (expandedItems.size === analysis.length) {
-                setExpandedItems(new Set());
-              } else {
-                setExpandedItems(new Set(analysis.map((_, i) => i)));
-              }
-            }}
-            className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40 hover:text-white/60 transition-colors"
-          >
-            {expandedItems.size === analysis.length ? 'Collapse All' : 'Expand All'}
-          </button>
-        </div>
-      )}
     </div>
   );
 }

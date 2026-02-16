@@ -22,7 +22,7 @@ export function MetricsDisplay({ data }: MetricsDisplayProps) {
     }
     if (type.toLowerCase().includes('net') || type.toLowerCase().includes('movement')) {
       const value = data.find(d => d.type === type)?.value || "0";
-      return parseInt(value) >= 0 
+      return parseInt(value) >= 0
         ? <TrendingUp className="text-blue-500" size={16} />
         : <TrendingDown className="text-orange-500" size={16} />;
     }
@@ -38,7 +38,7 @@ export function MetricsDisplay({ data }: MetricsDisplayProps) {
     }
     if (type.toLowerCase().includes('net')) {
       const numValue = parseInt(value) || 0;
-      return numValue >= 0 
+      return numValue >= 0
         ? "text-blue-600 bg-blue-50 border-blue-200"
         : "text-orange-600 bg-orange-50 border-orange-200";
     }
@@ -50,13 +50,13 @@ export function MetricsDisplay({ data }: MetricsDisplayProps) {
       <h5 className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30 px-2">
         Transaction Metrics
       </h5>
-      <div className="grid grid-cols-1 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {data.map((metric, index) => {
           const colorClass = getMetricColor(metric.type, metric.value);
           return (
             <div
               key={index}
-              className={`p-4 rounded-2xl border ${colorClass} backdrop-blur-sm transition-all hover:scale-[1.02]`}
+              className={`p-3 rounded-xl border ${colorClass} backdrop-blur-sm transition-all hover:scale-[1.02]`}
             >
               <div className="flex items-start gap-3">
                 <div className="mt-1">
@@ -65,7 +65,7 @@ export function MetricsDisplay({ data }: MetricsDisplayProps) {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-1">
                     <h6 className="text-xs font-bold truncate">{metric.type}</h6>
-                    <span className="text-lg font-black">{metric.value}</span>
+                    <span className="text-base font-black">{metric.value}</span>
                   </div>
                   <p className="text-[10px] opacity-70 leading-relaxed">
                     {metric.description}
