@@ -37,17 +37,22 @@ export interface DebugInfo {
   merged?: any;
   message?: string;
   originalContent?: string;
+  error?: string;
 }
 
 export interface TransactionItem {
   id?: string;
   itemId?: string;
   itemName?: string;
+  itemname?: string;
   type: 'STOCK_IN' | 'STOCK_OUT';
-  amount: number;
+  amount?: number;
+  quantitychange?: number;
   performedBy?: string;
+  performedby?: string;
   reason?: string;
   createdAt?: string;
+  createdat?: string;
 }
 
 export interface InventoryItem {

@@ -17,18 +17,18 @@ export const TransactionMessage: React.FC<TransactionMessageProps> = ({ data }) 
         </div>
         <div className="flex-1">
           <div className="font-medium text-slate-900">
-            {tx.itemId || tx.itemName || 'Unknown Item'}
+            {tx.itemId || tx.itemName || tx.itemname || 'Unknown Item'}
           </div>
           <div className="text-sm text-slate-600">
-            {tx.type === 'STOCK_IN' ? 'Added' : 'Removed'} {tx.amount} units
-            {tx.performedBy && ` by ${tx.performedBy}`}
+            {tx.type === 'STOCK_IN' ? 'Added' : 'Removed'} {tx.amount || tx.quantitychange} units
+            {tx.performedBy || tx.performedby && ` by ${tx.performedBy || tx.performedby}`}
             {tx.reason && ` - ${tx.reason}`}
           </div>
         </div>
         <div className={`px-2 py-1 rounded text-xs font-medium ${
           tx.type === 'STOCK_IN' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
         }`}>
-          {tx.type === 'STOCK_IN' ? '+' : '-'}{tx.amount}
+          {tx.type === 'STOCK_IN' ? '+' : '-'}{tx.amount || tx.quantitychange}
         </div>
       </div>
     ))}

@@ -1,32 +1,90 @@
 import { ChatResponse, MessageType, ParsedResponse, DebugInfo } from '@/types/chat';
 
 const extractAllJson = (content: string) => {
-  const jsonMatches = content.match(/\{[^}]*\}/g) || [];
   const validJsons = [];
 
-  for (const match of jsonMatches) {
-    try {
-      let fixed = match;
-      fixed = fixed.replace(/([{,])([^"])/g, '$1"$2');
-      fixed = fixed.replace(/([{,])([^"])/g, '$1"$2');
-      fixed = fixed.replace(/,([}\]])/g, '$1');
+  const fencedMatches = content.match(/```json\s*([\s\S\s]*?)\s*```/gi);
+  if (fencedMatches) {
+    for (const match of fencedMatches) {
+      const jsonContent = match.replace(/```json\s*/, '').replace(/```$/, '');
+      try {
+        const parsed = JSON.parse(jsonContent);
+        validJsons.push(parsed);
+      } catch (e) {
+        console.warn('Fenced JSON parse failed:', jsonContent.substring(0, 100) + '...', e);
+      }
+    }
+  }
 
-      const parsed = JSON.parse(fixed);
-      validJsons.push(parsed);
-    } catch (e) {
-      console.warn('JSON parse failed:', match, e);
+  if (validJsons.length === 0) {
+    const jsonObjects = extractJsonObjects(content);
+    for (const jsonObj of jsonObjects) {
+      try {
+        const parsed = JSON.parse(jsonObj);
+        validJsons.push(parsed);
+      } catch (e) {
+        console.warn('Object JSON parse failed:', jsonObj.substring(0, 100) + '...', e);
+      }
     }
   }
 
   return validJsons;
 };
 
+const extractJsonObjects = (content: string): string[] => {
+  const objects = [];
+  let braceCount = 0;
+  let startIdx = -1;
+  let inString = false;
+  let escapeNext = false;
+
+  for (let i = 0; i < content.length; i++) {
+    const char = content[i];
+
+    if (escapeNext) {
+      escapeNext = false;
+      continue;
+    }
+
+    if (char === '\\') {
+      escapeNext = true;
+      continue;
+    }
+
+    if (char === '"' && !escapeNext) {
+      inString = !inString;
+      continue;
+    }
+
+    if (!inString) {
+      if (char === '{' && braceCount === 0) {
+        startIdx = i;
+      }
+
+      if (char === '{' || char === '}') {
+        braceCount += (char === '{') ? 1 : -1;
+
+        if (braceCount === 0 && startIdx !== -1) {
+          objects.push(content.substring(startIdx, i + 1));
+          startIdx = -1;
+        }
+      }
+    }
+  }
+
+  return objects;
+};
+
 const mergeJsonFragments = (fragments: any[]) => {
   const merged: any = {};
 
   for (const fragment of fragments) {
-    if (fragment.data && Array.isArray(fragment.data)) {
-      merged.inventory = fragment.data;
+    if (fragment.data?.items && Array.isArray(fragment.data.items)) {
+      merged.inventory = fragment.data.items;
+      merged.total = fragment.data.total;
+    }
+    if (fragment.data?.data && Array.isArray(fragment.data.data)) {
+      merged.inventory = fragment.data.data;
     }
     if (fragment.status) merged.status = fragment.status;
     if (fragment.summary_text || fragment.summary) merged.summary = fragment.summary_text || fragment.summary;
@@ -54,20 +112,90 @@ const isProcessingMessage = (content: string): boolean => {
   );
 };
 
+const repairJson = (jsonString: string): string => {
+  let repaired = jsonString.trim();
+
+  if (!repaired.endsWith('}')) {
+    const openBraces = (repaired.match(/\{/g) || []).length;
+    const closeBraces = (repaired.match(/\}/g) || []).length;
+    const missingBraces = openBraces - closeBraces;
+
+    if (missingBraces > 0) {
+      repaired += '}'.repeat(missingBraces);
+      console.warn(`Added ${missingBraces} closing braces to repair JSON`);
+    }
+  }
+
+  repaired = repaired.replace(/,(\s*[}\]])/g, '$1');
+
+  repaired = repaired.replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":');
+
+  return repaired;
+};
+
 const parseFencedJson = (content: string): { parsed: ParsedResponse | null; debugInfo: DebugInfo } => {
   const fencedMatch = content.match(/```json\s*([\s\S\s]*?)\s*```/i);
   if (!fencedMatch || !fencedMatch[1]) {
     return { parsed: null, debugInfo: { source: 'no_fenced_json' } };
   }
 
+  const jsonContent = fencedMatch[1].trim();
+
+  const repairedJson = repairJson(jsonContent);
+
+  if (!isValidJson(repairedJson)) {
+    console.warn('Invalid JSON structure detected:', repairedJson.substring(0, 200) + '...');
+    return { parsed: null, debugInfo: { source: 'fenced_json_invalid' } };
+  }
+
   try {
-    const parsed = JSON.parse(fencedMatch[1]);
+    const parsed = JSON.parse(repairedJson);
     const debugInfo: DebugInfo = { source: 'fenced_json', parsed };
     return { parsed, debugInfo };
   } catch (e) {
     console.warn('JSON parsing failed:', e);
-    return { parsed: null, debugInfo: { source: 'fenced_json_parse_error' } };
+    console.warn('JSON content:', repairedJson.substring(0, 500));
+    return { parsed: null, debugInfo: { source: 'fenced_json_parse_error', error: e instanceof Error ? e.message : 'Unknown error' } };
   }
+};
+
+const isValidJson = (jsonString: string): boolean => {
+  if (!jsonString || jsonString.trim() === '') return false;
+
+  const trimmed = jsonString.trim();
+  if (!trimmed.startsWith('{') || !trimmed.endsWith('}')) return false;
+
+  let braceCount = 0;
+  let inString = false;
+  let escapeNext = false;
+
+  for (let i = 0; i < trimmed.length; i++) {
+    const char = trimmed[i];
+
+    if (escapeNext) {
+      escapeNext = false;
+      continue;
+    }
+
+    if (char === '\\') {
+      escapeNext = true;
+      continue;
+    }
+
+    if (char === '"' && !escapeNext) {
+      inString = !inString;
+      continue;
+    }
+
+    if (!inString) {
+      if (char === '{') braceCount++;
+      if (char === '}') braceCount--;
+
+      if (braceCount < 0) return false;
+    }
+  }
+
+  return braceCount === 0;
 };
 
 const handleIntentBasedResponse = (parsed: ParsedResponse, debugInfo: DebugInfo): ChatResponse | null => {
@@ -307,6 +435,26 @@ export const formatChatResponse = (content: string): ChatResponse => {
     message: 'No structured data found',
     originalContent: content.substring(0, 200) + (content.length > 200 ? '...' : '')
   };
+
+  if (cleanContent.length === 0) {
+    return {
+      type: 'text',
+      content: 'I\'m sorry, I couldn\'t process that request. Could you try rephrasing your question?',
+      isProcessing: false,
+      debugInfo: finalDebugInfo
+    };
+  }
+
+  if (cleanContent.toLowerCase().includes('error') ||
+      cleanContent.toLowerCase().includes('failed') ||
+      cleanContent.toLowerCase().includes('could not')) {
+    return {
+      type: 'text',
+      content: 'I encountered an issue while processing your request. Please try again or contact support if the problem persists.',
+      isProcessing: false,
+      debugInfo: { ...finalDebugInfo, source: 'error_pattern_detected' }
+    };
+  }
 
   return { type: 'text', content: cleanContent, isProcessing: false, debugInfo: finalDebugInfo };
 };
