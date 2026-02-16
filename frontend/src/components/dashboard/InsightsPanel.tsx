@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { ChevronDown, ChevronUp, AlertTriangle, AlertCircle, Info, Lightbulb } from "lucide-react";
 
 interface InsightsPanelProps {
@@ -12,25 +12,58 @@ interface InsightsPanelProps {
 export function InsightsPanel({ analysis }: InsightsPanelProps) {
   const [expandedItems, setExpandedItems] = useState<Set<number>>(new Set());
   const [allExpanded, setAllExpanded] = useState(false);
+  const [containerHeight, setContainerHeight] = useState('auto');
+  const containerRef = useRef<HTMLDivElement>(null);
+  const itemRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
   useEffect(() => {
     setExpandedItems(new Set());
     setAllExpanded(false);
+    setContainerHeight('auto');
   }, [analysis]);
 
-  if (!analysis || analysis.length === 0) {
-    return null;
-  }
+  useEffect(() => {
+    if (containerRef.current) {
+      const scrollHeight = containerRef.current.scrollHeight;
+      const maxHeight = 600;
+      setContainerHeight(scrollHeight > maxHeight ? `${maxHeight}px` : 'auto');
+    }
+  }, [expandedItems, analysis]);
+
+  const scrollToItem = useCallback((index: number) => {
+    const itemElement = itemRefs.current.get(index);
+    const containerElement = containerRef.current;
+
+    if (itemElement && containerElement) {
+      const itemRect = itemElement.getBoundingClientRect();
+      const containerRect = containerElement.getBoundingClientRect();
+
+      if (itemRect.bottom > containerRect.bottom || itemRect.top < containerRect.top) {
+        itemElement.scrollIntoView({
+          behavior: 'smooth',
+          block: 'nearest',
+          inline: 'nearest'
+        });
+      }
+    }
+  }, []);
 
   const toggleExpanded = (index: number) => {
     const newExpanded = new Set(expandedItems);
-    if (newExpanded.has(index)) {
+    const isCurrentlyExpanded = newExpanded.has(index);
+
+    if (isCurrentlyExpanded) {
       newExpanded.delete(index);
     } else {
       newExpanded.add(index);
     }
+
     setExpandedItems(newExpanded);
     setAllExpanded(newExpanded.size === analysis?.length);
+
+    if (!isCurrentlyExpanded) {
+      setTimeout(() => scrollToItem(index), 100);
+    }
   };
 
   const toggleAll = () => {
@@ -38,8 +71,13 @@ export function InsightsPanel({ analysis }: InsightsPanelProps) {
       setExpandedItems(new Set());
       setAllExpanded(false);
     } else {
-      setExpandedItems(new Set(analysis?.map((_, i) => i) || []));
+      const allIndices = analysis?.map((_, i) => i) || [];
+      setExpandedItems(new Set(allIndices));
       setAllExpanded(true);
+
+      if (allIndices.length > 0) {
+        setTimeout(() => scrollToItem(allIndices[0]), 100);
+      }
     }
   };
 
@@ -82,6 +120,10 @@ export function InsightsPanel({ analysis }: InsightsPanelProps) {
     }
   };
 
+  if (!analysis || analysis.length === 0) {
+    return null;
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -97,15 +139,30 @@ export function InsightsPanel({ analysis }: InsightsPanelProps) {
           </button>
         )}
       </div>
-      <div className="space-y-3">
+
+      <div
+        ref={containerRef}
+        className="space-y-3 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent"
+        style={{
+          height: containerHeight,
+          transition: 'height 0.3s ease-in-out'
+        }}
+      >
         {analysis.map((item, index) => {
           const isExpanded = expandedItems.has(index);
           return (
             <div
               key={index}
-              className={`border rounded-xl p-3 backdrop-blur-sm transition-all duration-300 ${getImpactColor(
-                item.impact
-              )} ${isExpanded ? 'shadow-lg' : 'hover:shadow-md'}`}
+              ref={(el) => {
+                if (el) {
+                  itemRefs.current.set(index, el);
+                }
+              }}
+              className={`
+                border rounded-xl p-3 backdrop-blur-sm transition-all duration-300
+                ${getImpactColor(item.impact)}
+                ${isExpanded ? 'shadow-lg' : 'hover:shadow-md'}
+              `}
             >
               <div className="flex items-start gap-3">
                 <div className="mt-1">

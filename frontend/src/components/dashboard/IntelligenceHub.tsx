@@ -199,26 +199,28 @@ export function IntelligenceHub({ isPro, tenantId }: IntelligenceHubProps) {
           />
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-hidden p-6">
           {isAiLoading && !analysis ? (
             <div className="flex flex-col items-center justify-center gap-6 h-full">
               <Loader2 className="animate-spin text-blue-500" size={40} />
               <p className="text-xs font-black uppercase tracking-[0.2em]">Analyzing Patterns...</p>
             </div>
           ) : analysis ? (
-            <div className="space-y-6 animate-in fade-in duration-700">
-              {activeTab === 'overview' && (
-                <OverviewTab analysis={analysis} />
-              )}
-              {activeTab === 'insights' && (
-                <InsightsPanel analysis={analysis.analysis} />
-              )}
-              {activeTab === 'metrics' && (
-                <MetricsDisplay data={analysis.data} />
-              )}
-              {activeTab === 'export' && (
-                <AnalysisExport analysis={analysis} tenantId={tenantId} />
-              )}
+            <div className="h-full overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+              <div className="space-y-6 animate-in fade-in duration-700">
+                {activeTab === 'overview' && (
+                  <OverviewTab analysis={analysis} />
+                )}
+                {activeTab === 'insights' && (
+                  <InsightsPanel analysis={analysis.analysis} />
+                )}
+                {activeTab === 'metrics' && (
+                  <MetricsDisplay data={analysis.data} />
+                )}
+                {activeTab === 'export' && (
+                  <AnalysisExport analysis={analysis} tenantId={tenantId} />
+                )}
+              </div>
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center text-center h-full">
