@@ -27,8 +27,6 @@ describe('ActiveInventoryTable Debug', () => {
 
     render(<ActiveInventoryTable {...mockProps} />);
 
-    console.log(screen.getByRole('table').outerHTML);
-
     expect(screen.getByRole('table')).toBeInTheDocument();
     expect(screen.getByText('Test Product 1')).toBeInTheDocument();
   });
