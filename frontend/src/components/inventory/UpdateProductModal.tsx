@@ -18,7 +18,15 @@ interface UpdateProductModalProps {
 }
 
 export function UpdateProductModal({ isOpen, isPending, error, item, onClose, onSubmit }: UpdateProductModalProps) {
-  const { register, handleSubmit, reset, setValue, watch } = useForm();
+  const { register, handleSubmit, reset, setValue, watch } = useForm({
+    defaultValues: {
+      name: '',
+      sku: '',
+      category: 'General',
+      price: '',
+      minThreshold: ''
+    }
+  });
   const currentCategory = watch('category');
 
   const isDuplicateError = error?.toLowerCase().includes('duplicate') || error?.toLowerCase().includes('already exists');
@@ -29,8 +37,8 @@ export function UpdateProductModal({ isOpen, isPending, error, item, onClose, on
         name: item.name,
         sku: item.sku,
         category: item.category,
-        price: item.price,
-        minThreshold: item.minThreshold
+        price: item.price?.toString() || '',
+        minThreshold: item.minThreshold?.toString() || ''
       });
     }
   }, [item, reset]);
