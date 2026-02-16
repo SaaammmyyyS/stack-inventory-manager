@@ -36,6 +36,16 @@ export interface InventorySummary {
   summary: string;
   urgentActions: string[];
   healthScore: number;
+  data?: Array<{
+    type: string;
+    value: string;
+    description: string;
+  }>;
+  analysis?: Array<{
+    insight: string;
+    impact: 'high' | 'medium' | 'low';
+    recommendation: string;
+  }>;
 }
 
 export interface FetchOptions {

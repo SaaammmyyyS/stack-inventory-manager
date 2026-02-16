@@ -21,6 +21,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -37,17 +38,20 @@ public class AiAnalysisService {
     private final InventoryRepository inventoryRepository;
     private final BillingGuard billingGuard;
     private final ObjectMapper objectMapper;
+    private final OllamaHealthService ollamaHealthService;
 
     public AiAnalysisService(ChatClient chatClient,
                              TransactionRepository transactionRepository,
                              InventoryRepository inventoryRepository,
                              BillingGuard billingGuard,
-                             ObjectMapper objectMapper) {
+                             ObjectMapper objectMapper,
+                             OllamaHealthService ollamaHealthService) {
         this.chatClient = chatClient;
         this.transactionRepository = transactionRepository;
         this.inventoryRepository = inventoryRepository;
         this.billingGuard = billingGuard;
         this.objectMapper = objectMapper;
+        this.ollamaHealthService = ollamaHealthService;
     }
 
     public List<StockAIInsightDTO> calculateAllItemForecasts(String tenantId) {
@@ -441,11 +445,17 @@ public class AiAnalysisService {
                         Math.abs(t.getQuantityChange())))
                 .collect(Collectors.joining("\n"));
 
+        Map<String, Object> basicStats = calculateBasicStatistics(history);
+
+        if (!ollamaHealthService.isOllamaHealthy()) {
+            logger.warn("Ollama is unhealthy for tenant {}, using rule-based analysis", tenantId);
+            return createRuleBasedAnalysis(tenantId, history, basicStats);
+        }
+
         try {
-            ChatResponse response = chatClient.prompt()
-                    .user("Analyze these stock movements and return JSON report. DATA:\n" + dataFeed)
-                    .call()
-                    .chatResponse();
+            String enhancedPrompt = createEnhancedAnalysisPrompt(dataFeed, basicStats);
+
+            ChatResponse response = callAiWithRetry(enhancedPrompt, tenantId, 3);
 
             if (response != null && response.getMetadata().getUsage() != null) {
                 billingGuard.updateTokenUsage(tenantId, response.getMetadata().getUsage().getTotalTokens());
@@ -456,7 +466,7 @@ public class AiAnalysisService {
 
             if (content.contains("REPLACE_WITH") || content.contains("[REPLACE_") || content.contains("placeholder")) {
                 logger.warn("AI returned placeholder response instead of using tool data for tenant {}", tenantId);
-                return createEmptyResponse("AI analysis failed to process provided data. Please try again.");
+                return createRuleBasedAnalysis(tenantId, history, basicStats);
             }
 
             String cleanedJson = extractJson(content);
@@ -465,7 +475,7 @@ public class AiAnalysisService {
             JsonNode root = objectMapper.readTree(cleanedJson);
             if (!root.has("status") && !root.has("summary")) {
                 logger.warn("AI response missing required fields for tenant {}", tenantId);
-                return createEmptyResponse("AI response format is invalid. Please try again.");
+                return createRuleBasedAnalysis(tenantId, history, basicStats);
             }
 
             InventorySummaryAnalysisDTO dto = new InventorySummaryAnalysisDTO();
@@ -518,7 +528,7 @@ public class AiAnalysisService {
 
         } catch (Exception e) {
             logger.error("AI Error for tenant {}: {}", tenantId, e.getMessage(), e);
-            return createEmptyResponse("AI analysis failed to process. Ensure data is valid.");
+            return createRuleBasedAnalysis(tenantId, history, basicStats);
         }
     }
 
@@ -547,5 +557,295 @@ public class AiAnalysisService {
         dto.setUrgentActions(List.of("Record more stock transactions to enable AI insights"));
         dto.setHealthScore(0);
         return dto;
+    }
+
+    private String createEnhancedAnalysisPrompt(String dataFeed, Map<String, Object> basicStats) {
+        return String.format("""
+            You are an inventory analysis expert. Analyze the REAL stock movement data provided below and generate a JSON report.
+
+            CRITICAL INSTRUCTIONS:
+            - Use ONLY the actual data provided below
+            - NEVER use placeholders like "REPLACE_WITH_" or template responses
+            - Analyze the specific transactions listed
+            - Provide real insights based on the data patterns
+
+            TRANSACTION DATA:
+            %s
+
+            BASIC STATISTICS:
+            - Total Transactions: %s
+            - Total Stock In: %s
+            - Total Stock Out: %s
+            - Net Movement: %s
+            - Unique Items: %s
+
+            REQUIRED JSON RESPONSE FORMAT:
+            {
+              "status": "HEALTHY" | "WARNING" | "CRITICAL",
+              "summary": "Brief analysis summary based on the actual data",
+              "healthScore": 0-100,
+              "urgentActions": ["action1", "action2"],
+              "data": [
+                {
+                  "type": "metric_name",
+                  "value": "actual_value",
+                  "description": "description based on data"
+                }
+              ],
+              "analysis": [
+                {
+                  "insight": "specific insight from data",
+                  "impact": "high/medium/low",
+                  "recommendation": "specific recommendation"
+                }
+              ]
+            }
+
+            ANALYSIS FOCUS:
+            - Overall inventory health based on transaction patterns
+            - Stock movement trends (in vs out balance)
+            - Activity levels and patterns
+            - Any concerning patterns (high outflows, low activity)
+
+            Generate a complete JSON response with real analysis of the provided data.
+            """,
+            dataFeed,
+            basicStats.get("totalTransactions"),
+            basicStats.get("totalStockIn"),
+            basicStats.get("totalStockOut"),
+            basicStats.get("netMovement"),
+            basicStats.get("uniqueItems"));
+    }
+
+    private Map<String, Object> calculateBasicStatistics(List<StockTransaction> history) {
+        Map<String, Object> stats = new HashMap<>();
+
+        long totalTransactions = history.size();
+        long totalStockIn = history.stream()
+                .filter(t -> "STOCK_IN".equals(t.getType()))
+                .mapToLong(t -> Math.abs(t.getQuantityChange()))
+                .sum();
+        long totalStockOut = history.stream()
+                .filter(t -> "STOCK_OUT".equals(t.getType()))
+                .mapToLong(t -> Math.abs(t.getQuantityChange()))
+                .sum();
+        long netMovement = totalStockIn - totalStockOut;
+        long uniqueItems = history.stream()
+                .filter(t -> t.getInventoryItem() != null)
+                .map(t -> t.getInventoryItem().getId())
+                .distinct()
+                .count();
+
+        stats.put("totalTransactions", totalTransactions);
+        stats.put("totalStockIn", totalStockIn);
+        stats.put("totalStockOut", totalStockOut);
+        stats.put("netMovement", netMovement);
+        stats.put("uniqueItems", uniqueItems);
+
+        return stats;
+    }
+
+    private InventorySummaryAnalysisDTO createRuleBasedAnalysis(String tenantId, List<StockTransaction> history, Map<String, Object> basicStats) {
+        logger.info("Creating rule-based analysis for tenant {} due to AI failure", tenantId);
+
+        InventorySummaryAnalysisDTO dto = new InventorySummaryAnalysisDTO();
+
+        long totalTransactions = (Long) basicStats.get("totalTransactions");
+        long totalStockIn = (Long) basicStats.get("totalStockIn");
+        long totalStockOut = (Long) basicStats.get("totalStockOut");
+        long netMovement = totalStockIn - totalStockOut;
+
+        int healthScore = calculateRuleBasedHealthScore(totalTransactions, totalStockIn, totalStockOut, netMovement);
+
+        String status = healthScore >= 80 ? "HEALTHY" : healthScore >= 50 ? "WARNING" : "CRITICAL";
+        String summary = generateRuleBasedSummary(totalTransactions, totalStockIn, totalStockOut, netMovement, healthScore);
+        List<String> urgentActions = generateRuleBasedActions(totalTransactions, totalStockIn, totalStockOut, netMovement, healthScore);
+        List<Map<String, Object>> data = generateRuleBasedData(basicStats);
+        List<Map<String, Object>> analysis = generateRuleBasedInsights(totalTransactions, totalStockIn, totalStockOut, netMovement);
+
+        dto.setStatus(status);
+        dto.setSummary(summary);
+        dto.setHealthScore(healthScore);
+        dto.setUrgentActions(urgentActions);
+        dto.setData(data);
+        dto.setAnalysis(analysis);
+
+        return dto;
+    }
+
+    private int calculateRuleBasedHealthScore(long totalTransactions, long totalStockIn, long totalStockOut, long netMovement) {
+        int score = 50;
+
+        if (totalTransactions > 100) score += 15;
+        else if (totalTransactions > 50) score += 10;
+        else if (totalTransactions > 20) score += 5;
+
+        long totalMovement = totalStockIn + totalStockOut;
+        if (totalMovement > 0) {
+            double balanceRatio = Math.abs(totalStockIn - totalStockOut) / (double) totalMovement;
+            if (balanceRatio < 0.2) score += 20;
+            else if (balanceRatio < 0.4) score += 10;
+            else if (balanceRatio > 0.8) score -= 10;
+        }
+
+        if (netMovement > 0) score += 15;
+        else if (netMovement < -50) score -= 10;
+
+        return Math.max(0, Math.min(100, score));
+    }
+
+    private String generateRuleBasedSummary(long totalTransactions, long totalStockIn, long totalStockOut, long netMovement, int healthScore) {
+        StringBuilder summary = new StringBuilder();
+        summary.append("Rule-based analysis of ").append(totalTransactions).append(" transactions. ");
+
+        if (netMovement > 0) {
+            summary.append("Overall stock increased by ").append(netMovement).append(" units. ");
+        } else if (netMovement < 0) {
+            summary.append("Overall stock decreased by ").append(Math.abs(netMovement)).append(" units. ");
+        } else {
+            summary.append("Stock levels remained stable. ");
+        }
+
+        if (healthScore >= 80) {
+            summary.append("Inventory health is optimal with balanced activity patterns.");
+        } else if (healthScore >= 50) {
+            summary.append("Inventory health requires attention due to moderate imbalances.");
+        } else {
+            summary.append("Inventory health is critical with significant stock flow issues.");
+        }
+
+        return summary.toString();
+    }
+
+    private List<String> generateRuleBasedActions(long totalTransactions, long totalStockIn, long totalStockOut, long netMovement, int healthScore) {
+        List<String> actions = new ArrayList<>();
+
+        if (totalTransactions < 20) {
+            actions.add("Increase transaction recording frequency for better insights");
+        }
+
+        if (totalStockOut > totalStockIn * 1.5) {
+            actions.add("Review high stock outflow patterns - potential overstocking issues");
+        }
+
+        if (totalStockIn > totalStockOut * 1.5) {
+            actions.add("Monitor stock accumulation - potential excess inventory");
+        }
+
+        if (netMovement < -50) {
+            actions.add("Address significant inventory depletion");
+        }
+
+        if (healthScore < 50) {
+            actions.add("Implement regular inventory monitoring and review processes");
+        }
+
+        if (actions.isEmpty()) {
+            actions.add("Continue current inventory management practices");
+        }
+
+        return actions;
+    }
+
+    private List<Map<String, Object>> generateRuleBasedData(Map<String, Object> basicStats) {
+        List<Map<String, Object>> data = new ArrayList<>();
+
+        data.add(Map.of(
+            "type", "transaction_count",
+            "value", basicStats.get("totalTransactions").toString(),
+            "description", "Total stock movements in analysis period"
+        ));
+
+        data.add(Map.of(
+            "type", "stock_flow_balance",
+            "value", String.format("IN: %s, OUT: %s", basicStats.get("totalStockIn"), basicStats.get("totalStockOut")),
+            "description", "Comparison of stock inflows vs outflows"
+        ));
+
+        data.add(Map.of(
+            "type", "net_movement",
+            "value", basicStats.get("netMovement").toString(),
+            "description", "Net change in inventory levels"
+        ));
+
+        data.add(Map.of(
+            "type", "unique_items",
+            "value", basicStats.get("uniqueItems").toString(),
+            "description", "Number of different items processed"
+        ));
+
+        return data;
+    }
+
+    private List<Map<String, Object>> generateRuleBasedInsights(long totalTransactions, long totalStockIn, long totalStockOut, long netMovement) {
+        List<Map<String, Object>> insights = new ArrayList<>();
+
+        String activityLevel = totalTransactions > 100 ? "High" : totalTransactions > 50 ? "Moderate" : "Low";
+        insights.add(Map.of(
+            "insight", String.format("Transaction activity is %s with %d total movements", activityLevel, totalTransactions),
+            "impact", totalTransactions > 100 ? "medium" : "low",
+            "recommendation", totalTransactions < 50 ? "Consider increasing transaction frequency for better data" : "Maintain current activity levels"
+        ));
+
+        long totalMovement = totalStockIn + totalStockOut;
+        if (totalMovement > 0) {
+            double balanceRatio = Math.abs(totalStockIn - totalStockOut) / (double) totalMovement;
+            String balanceStatus = balanceRatio < 0.2 ? "Well balanced" : balanceRatio < 0.4 ? "Moderately balanced" : "Imbalanced";
+            insights.add(Map.of(
+                "insight", String.format("Stock flow is %s (ratio: %.2f)", balanceStatus, balanceRatio),
+                "impact", balanceRatio > 0.6 ? "high" : "medium",
+                "recommendation", balanceRatio > 0.6 ? "Review inventory management practices for better balance" : "Current flow patterns are acceptable"
+            ));
+        }
+
+        if (netMovement != 0) {
+            String movementTrend = netMovement > 0 ? "increasing" : "decreasing";
+            insights.add(Map.of(
+                "insight", String.format("Overall inventory levels are %s by %d units", movementTrend, Math.abs(netMovement)),
+                "impact", Math.abs(netMovement) > 100 ? "high" : "medium",
+                "recommendation", netMovement < -50 ? "Monitor for potential stock shortages" : "Continue monitoring inventory trends"
+            ));
+        }
+
+        return insights;
+    }
+
+    private ChatResponse callAiWithRetry(String prompt, String tenantId, int maxRetries) {
+        for (int attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                logger.debug("AI call attempt {} for tenant {}", attempt, tenantId);
+
+                ChatResponse response = chatClient.prompt()
+                        .user(prompt)
+                        .call()
+                        .chatResponse();
+
+                if (response != null && response.getResult() != null && response.getResult().getOutput() != null) {
+                    logger.info("AI call successful on attempt {} for tenant {}", attempt, tenantId);
+                    return response;
+                }
+
+                logger.warn("AI call attempt {} returned null response for tenant {}", attempt, tenantId);
+
+            } catch (Exception e) {
+                logger.warn("AI call attempt {} failed for tenant {}: {}", attempt, tenantId, e.getMessage());
+
+                if (attempt == maxRetries) {
+                    logger.error("All AI call attempts failed for tenant {}, falling back to rule-based analysis", tenantId);
+                    throw new RuntimeException("AI service unavailable after " + maxRetries + " attempts: " + e.getMessage(), e);
+                }
+
+                try {
+                    long waitTime = (long) (1000 * Math.pow(2, attempt - 1)); // 1s, 2s, 4s
+                    logger.debug("Waiting {}ms before retry attempt {} for tenant {}", waitTime, attempt + 1, tenantId);
+                    Thread.sleep(waitTime);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException("AI retry interrupted", ie);
+                }
+            }
+        }
+
+        throw new RuntimeException("AI service failed after " + maxRetries + " attempts");
     }
 }

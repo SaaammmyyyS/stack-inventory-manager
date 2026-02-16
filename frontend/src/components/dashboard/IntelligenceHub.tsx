@@ -6,6 +6,9 @@ import {
 } from "lucide-react";
 import { InventorySummary, StockTransaction } from "../../types/inventory";
 import { StockVelocityChart } from "./StockVelocityChart";
+import { MetricsDisplay } from "./MetricsDisplay";
+import { InsightsPanel } from "./InsightsPanel";
+import { AnalysisExport } from "./AnalysisExport";
 import { useInventory } from "@/hooks/useInventory";
 import { toast } from "sonner";
 
@@ -180,6 +183,10 @@ export function IntelligenceHub({ isPro, tenantId }: IntelligenceHubProps) {
                   ))}
                 </div>
               </div>
+
+              <MetricsDisplay data={analysis.data} />
+              <InsightsPanel analysis={analysis.analysis} />
+              <AnalysisExport analysis={analysis} tenantId={tenantId} />
             </div>
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center text-center px-6 relative z-10">
