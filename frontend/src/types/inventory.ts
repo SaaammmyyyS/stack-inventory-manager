@@ -27,8 +27,9 @@ export interface StockAIInsight {
   currentQuantity: number;
   daysRemaining: number;
   predictedDepletionDate: string;
-  healthStatus: 'STABLE' | 'WARNING' | 'CRITICAL' | 'OVERSTOCKED';
-  confidenceScore: number;
+  healthStatus: 'GOOD' | 'CRITICAL' | 'CAUTION' | 'STABLE' | 'WARNING' | 'OVERSTOCKED';
+  suggestedThreshold?: number;
+  thresholdReason?: string;
 }
 
 export interface InventorySummary {
@@ -36,6 +37,16 @@ export interface InventorySummary {
   summary: string;
   urgentActions: string[];
   healthScore: number;
+  data?: Array<{
+    type: string;
+    value: string;
+    description: string;
+  }>;
+  analysis?: Array<{
+    insight: string;
+    impact: 'high' | 'medium' | 'low';
+    recommendation: string;
+  }>;
 }
 
 export interface FetchOptions {

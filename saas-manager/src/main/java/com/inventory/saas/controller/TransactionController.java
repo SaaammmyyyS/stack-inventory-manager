@@ -35,14 +35,16 @@ public class TransactionController {
     @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_MEMBER')")
     public StockMovementResponseDTO addTransaction(
             @PathVariable UUID itemId,
-            @RequestBody StockMovementRequestDTO request
+            @RequestBody StockMovementRequestDTO request,
+            @RequestHeader("X-Tenant-ID") String tenantId
     ) {
         StockTransaction transaction = inventoryService.recordMovement(
                 itemId,
                 request.getAmount(),
                 request.getType(),
                 request.getReason(),
-                request.getPerformedBy()
+                request.getPerformedBy(),
+                tenantId
         );
         return convertToDto(transaction);
     }
@@ -59,6 +61,16 @@ public class TransactionController {
     @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_MEMBER', 'ROLE_USER')")
     public List<StockMovementResponseDTO> getHistory(@PathVariable UUID itemId) {
         return inventoryService.getItemHistory(itemId).stream()
+                .map(this::convertToDto)
+                .collect(Collectors.toList());
+    }
+
+    @GetMapping("/debug/all")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_MEMBER')")
+    public List<StockMovementResponseDTO> getAllTransactionsForDebug(
+            @RequestHeader("X-Tenant-ID") String tenantId
+    ) {
+        return inventoryService.getAllTransactionsForDebug(tenantId).stream()
                 .map(this::convertToDto)
                 .collect(Collectors.toList());
     }

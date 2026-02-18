@@ -45,6 +45,9 @@ public interface InventoryRepository extends JpaRepository<InventoryItem, UUID> 
                 nativeQuery = true)
         Page<InventoryItem> findByTenantIdAndDeletedFalse(@Param("tenantId") String tenantId, Pageable pageable);
 
+        @Query(value = "SELECT * FROM inventory WHERE id = :id AND tenant_id = :tenantId AND deleted = 'N'", nativeQuery = true)
+        Optional<InventoryItem> findByIdAndTenantIdAndDeletedFalse(@Param("id") UUID id, @Param("tenantId") String tenantId);
+
         @Query(value = "SELECT i.id as id, i.name as name, i.sku as sku, i.category as category, " +
                 "(SELECT t.performed_by FROM stock_transactions t " +
                 " WHERE t.inventory_item_id = i.id AND t.type = 'DELETED' " +

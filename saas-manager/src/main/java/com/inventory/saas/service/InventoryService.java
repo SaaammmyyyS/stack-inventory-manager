@@ -19,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -40,6 +41,10 @@ public class InventoryService {
             return repository.findByFilters(tenantId, search, category, pageable);
         }
         return repository.findByTenantIdAndDeletedFalse(tenantId, pageable);
+    }
+
+    public Optional<InventoryItem> getItemByIdAndTenant(UUID id, String tenantId) {
+        return repository.findByIdAndTenantIdAndDeletedFalse(id, tenantId);
     }
 
     @Transactional
@@ -68,11 +73,15 @@ public class InventoryService {
     }
 
     @Transactional
-    public StockTransaction recordMovement(UUID id, Integer amount, String type, String reason, String performedBy) {
-        InventoryItem item = repository.findById(id)
+    @CacheEvict(value = "ai-analysis", key = "#tenantId")
+    public StockTransaction recordMovement(UUID id, Integer amount, String type, String reason, String performedBy, String tenantId) {
+        logger.info("Recording stock movement: itemId={}, amount={}, type={}, reason={}, performedBy={}, tenantId={}",
+            id, amount, type, reason, performedBy, tenantId);
+
+        InventoryItem item = repository.findByIdAndTenantIdAndDeletedFalse(id, tenantId)
                 .orElseThrow(() -> new ResourceNotFoundException("Inventory item not found"));
 
-        evictAiCache(item.getTenantId());
+        evictAiCache(tenantId);
 
         int adjustment = type.equalsIgnoreCase("STOCK_OUT") ? -Math.abs(amount) : Math.abs(amount);
         item.setQuantity(item.getQuantity() + adjustment);
@@ -80,13 +89,17 @@ public class InventoryService {
 
         StockTransaction transaction = new StockTransaction();
         transaction.setInventoryItem(item);
-        transaction.setTenantId(item.getTenantId());
+        transaction.setTenantId(tenantId);
         transaction.setQuantityChange(adjustment);
         transaction.setType(type.toUpperCase());
         transaction.setReason(reason);
         transaction.setPerformedBy(performedBy != null ? performedBy : "System");
 
-        return transactionRepository.save(transaction);
+        StockTransaction saved = transactionRepository.save(transaction);
+        logger.info("Saved transaction: id={}, type={}, quantityChange={}, itemId={}, tenantId={}",
+            saved.getId(), saved.getType(), saved.getQuantityChange(), item.getId(), tenantId);
+
+        return saved;
     }
 
     @Transactional
@@ -155,5 +168,20 @@ public class InventoryService {
                 .itemName((String) row.get("itemName"))
                 .build()
         ).collect(Collectors.toList());
+    }
+
+    public List<StockTransaction> getAllTransactionsForDebug(String tenantId) {
+        logger.info("Retrieving all transactions for debug - tenant: {}", tenantId);
+        List<StockTransaction> transactions = transactionRepository.findAllTransactionsByTenant(tenantId);
+        logger.info("Found {} total transactions for tenant {}", transactions.size(), tenantId);
+
+        Map<String, Long> typeCounts = transactions.stream()
+            .collect(Collectors.groupingBy(
+                t -> t.getType() != null ? t.getType() : "NULL",
+                Collectors.counting()
+            ));
+        logger.info("Transaction type distribution for debug: {}", typeCounts);
+
+        return transactions;
     }
 }

@@ -71,4 +71,9 @@ public interface TransactionRepository extends JpaRepository<StockTransaction, U
             @Param("tenantId") String tenantId,
             @Param("date") LocalDateTime date
     );
+
+    @Query("SELECT t FROM StockTransaction t JOIN FETCH t.inventoryItem " +
+            "WHERE t.tenantId = :tenantId " +
+            "ORDER BY t.createdAt DESC")
+    List<StockTransaction> findAllTransactionsByTenant(@Param("tenantId") String tenantId);
 }

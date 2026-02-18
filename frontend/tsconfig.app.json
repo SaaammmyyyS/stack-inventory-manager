@@ -18,7 +18,8 @@
     "jsx": "react-jsx",
 
     /* Explicitly include Vite types */
-    "types": ["vite/client"],
+    "types": ["vite/client", "jest", "@testing-library/jest-dom", "@types/jest"],
+    "esModuleInterop": true,
 
     /* Linting - Relaxed to allow Docker build to pass */
     "strict": true,

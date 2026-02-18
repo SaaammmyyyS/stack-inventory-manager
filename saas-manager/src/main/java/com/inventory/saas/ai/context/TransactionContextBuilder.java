@@ -120,39 +120,25 @@ public class TransactionContextBuilder {
     private List<Map<String, Object>> filterRecentTransactionsByPerformedByRaw(List<Map<String, Object>> raw, String filter) {
         if (raw == null) return List.of();
 
-        return raw.stream()
+        logger.info("filterRecentTransactionsByPerformedByRaw called with filter='{}', rawRows={}", filter, raw.size());
+
+        List<Map<String, Object>> filtered = raw.stream()
                 .filter(row -> row != null)
                 .filter(row -> {
                     if (filter == null || filter.isBlank()) return true;
                     Object performedBy = row.get("performedBy");
-                    return performedBy != null && performedBy.toString().toLowerCase(Locale.ROOT).contains(filter);
-                })
-                .map(row -> {
-                    Map<String, Object> m = new HashMap<>();
-                    Object id = row.get("id");
-                    Object itemName = row.get("itemName");
-                    Object type = row.get("type");
-                    Object qtyChange = row.get("quantityChange");
-                    Object reason = row.get("reason");
-                    Object performedBy = row.get("performedBy");
-                    Object createdAt = row.get("createdAt");
+                    boolean matches = performedBy != null && performedBy.toString().toLowerCase(Locale.ROOT).contains(filter);
 
-                    m.put("id", id != null ? id.toString() : null);
-                    m.put("itemName", itemName);
-                    m.put("type", type);
-
-                    int qc = 0;
-                    if (qtyChange instanceof Number n) {
-                        qc = n.intValue();
+                    if (filter.equals("peter") || filter.equals("ivan")) {
+                        logger.debug("Checking performer match: filter='{}', performedBy='{}', matches={}",
+                            filter, performedBy, matches);
                     }
-                    m.put("quantityChange", qc);
-                    m.put("amount", Math.abs(qc));
 
-                    m.put("reason", reason);
-                    m.put("performedBy", performedBy);
-                    m.put("createdAt", createdAt != null ? createdAt.toString() : null);
-                    return m;
+                    return matches;
                 })
                 .collect(Collectors.toList());
+
+        logger.info("filterRecentTransactionsByPerformedByRaw result: filteredRows={}", filtered.size());
+        return filtered;
     }
 }

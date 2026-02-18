@@ -2,6 +2,7 @@ import { useState, useCallback, useTransition, useMemo } from 'react';
 import { useAuth, useOrganization, useUser } from "@clerk/clerk-react";
 import { toast } from "sonner";
 import axios from "axios";
+import { useJWTAuth } from "./useJWTAuth";
 
 export interface InventoryItem {
   id: string;
@@ -37,6 +38,7 @@ export function useInventory() {
   const { getToken } = useAuth();
   const { user } = useUser();
   const { organization, isLoaded: isOrgLoaded } = useOrganization();
+  const { isAdmin: jwtIsAdmin, plan: jwtPlan, isLoading: jwtLoading } = useJWTAuth();
 
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [totalCount, setTotalCount] = useState(0);
@@ -52,13 +54,14 @@ export function useInventory() {
   const [isPending, startTransition] = useTransition();
 
   const tenantId = useMemo(() => organization?.id || user?.id || "personal", [organization?.id, user?.id]);
-  const currentPlan = useMemo(() => (organization?.publicMetadata?.plan as string)?.toLowerCase() || 'free', [organization]);
+
+  const currentPlan = useMemo(() => {
+    return jwtPlan;
+  }, [jwtPlan]);
 
   const isAdmin = useMemo(() => {
-    const isOrgAdmin = organization?.membershipList?.find(m => m.publicUserData.userId === user?.id)?.role === "org:admin";
-    const isMetadataAdmin = user?.publicMetadata?.role === 'admin';
-    return isOrgAdmin || isMetadataAdmin;
-  }, [organization, user]);
+    return jwtIsAdmin;
+  }, [jwtIsAdmin]);
 
   const api = useMemo(() => {
     const instance = axios.create({

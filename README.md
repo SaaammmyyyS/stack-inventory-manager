@@ -1,8 +1,8 @@
 # SaaSManager
 
-Enterprise-grade multi-tenant inventory management platform with AI-powered insights and real-time analytics.
+Enterprise-grade multi-tenant inventory management platform with advanced AI-powered insights, conversational interfaces, and real-time analytics.
 
-A comprehensive B2B SaaS solution that provides complete data isolation, intelligent forecasting, and scalable infrastructure for modern inventory management needs.
+A comprehensive B2B SaaS solution that provides complete data isolation, intelligent forecasting with conversation history, and scalable infrastructure for modern inventory management needs.
 
 ## Features
 
@@ -15,11 +15,12 @@ A comprehensive B2B SaaS solution that provides complete data isolation, intelli
 - Activity logging and complete audit trails
 
 ### AI-Powered Intelligence
-- Natural language inventory queries through intelligent chatbot
-- AI-driven demand forecasting and predictive analytics
-- Advanced stock velocity analysis and insights
-- Automated inventory recommendations
-- Intent-based query processing system
+- Advanced conversational AI chatbot with session persistence and conversation history
+- Natural language inventory queries with intelligent intent classification
+- AI-driven demand forecasting and predictive analytics with Spring AI framework
+- Advanced stock velocity analysis and interactive visualizations using Recharts
+- Automated inventory recommendations with entity extraction using OpenNLP
+- Intent-based query processing system with multi-model AI support (Ollama + AWS Bedrock)
 
 ### Enterprise Security & Management
 - Clerk-based authentication and authorization
@@ -29,11 +30,12 @@ A comprehensive B2B SaaS solution that provides complete data isolation, intelli
 - Comprehensive usage tracking and analytics
 
 ### Analytics & Reporting
-- Real-time dashboard with key performance metrics
-- Inventory valuation calculations and analysis
-- Stock movement analytics with trend visualization
-- Advanced forecast visualization with interactive charts
-- Professional PDF report generation (Pro feature)
+- Real-time dashboard with key performance metrics and IntelligenceHub integration
+- Inventory valuation calculations and comprehensive analysis
+- Interactive stock movement analytics with trend visualization using Recharts
+- Advanced forecast visualization with AI-powered insights and recommendations
+- Professional PDF report generation using OpenPDF (Pro feature)
+- Activity feeds and real-time monitoring with automated alerts
 
 ### Cloud Infrastructure
 - Docker containerization for consistency
@@ -98,11 +100,14 @@ flowchart TD
 ```
 
 ### Technology Stack
-- **Frontend:** React 19, TypeScript, Vite, TailwindCSS, Clerk Authentication
-- **Backend:** Spring Boot 3.4.2, Java 21, Spring Security, Spring AI
-- **Database:** PostgreSQL for primary storage, Redis for caching
-- **AI/ML:** Spring AI with Ollama and AWS Bedrock integration
+- **Frontend:** React 18.2.0, TypeScript 5.9.3, Vite 7.2.4, TailwindCSS 4.1.18, Clerk Authentication
+- **Backend:** Spring Boot 3.4.2, Java 21, Spring Security, Spring AI 1.0.0-M5
+- **Database:** PostgreSQL for primary storage, Redis for caching and rate limiting
+- **AI/ML:** Spring AI with Ollama and AWS Bedrock integration, Apache OpenNLP for entity extraction
+- **Visualization:** Recharts 3.7.0 for interactive charts and analytics
 - **Infrastructure:** AWS App Runner, ECR, Terraform, Docker
+- **Testing:** Jest, TestContainers, Awaitility for comprehensive test coverage
+- **Reporting:** OpenPDF for professional PDF generation
 
 ## Quick Start
 
@@ -162,7 +167,7 @@ DB_PASSWORD=your_password
 CLERK_ISSUER_URI=https://your-clerk-domain.com
 CLERK_SECRET_KEY=your_clerk_secret_key
 
-# Cache
+# Cache and Rate Limiting
 REDIS_HOST=localhost
 REDIS_PORT=6379
 REDIS_PASSWORD=your_redis_password
@@ -170,6 +175,10 @@ REDIS_PASSWORD=your_redis_password
 # AI Services
 SPRING_AI_BEDROCK_AWS_REGION=ap-southeast-1
 AWS_REGION=ap-southeast-1
+SPRING_AI_OLLAMA_BASE_URL=http://localhost:11434
+
+# PDF Generation
+# OpenPDF is automatically configured, no additional setup required
 ```
 
 #### Frontend Configuration
@@ -177,9 +186,16 @@ AWS_REGION=ap-southeast-1
 # Clerk Authentication
 VITE_CLERK_PUBLISHABLE_KEY=your_clerk_publishable_key
 
-# Redis (for rate limiting)
+# API Configuration
+VITE_API_BASE_URL=http://localhost:8080
+
+# Redis (for rate limiting and caching)
 VITE_UPSTASH_REDIS_REST_URL=your_redis_rest_url
 VITE_UPSTASH_REDIS_REST_TOKEN=your_redis_rest_token
+
+# Development Settings
+VITE_DEV_MODE=true
+VITE_DEBUG_AI_RESPONSES=false
 ```
 
 ## Deployment
@@ -191,9 +207,10 @@ docker-compose up -d
 ```
 
 This starts:
-- PostgreSQL database on port 5432
-- Redis cache on port 6379
-- Application services with local configuration
+- Backend API service on port 8080 with Spring Boot application
+- Frontend UI service on port 80 with Nginx reverse proxy
+- PostgreSQL database and Redis cache (configured separately)
+- Automatic service dependencies and health checks
 
 ### AWS Production Deployment
 
@@ -206,28 +223,30 @@ terraform apply
 
 #### 2. Build and Deploy
 ```bash
-# Deploy using the automated script
+# Deploy using automated script (supports dev branch deployment)
 ./deploy.sh
 ```
 
 The deployment process:
-1. Builds and pushes Docker images to ECR
-2. Provisions AWS App Runner services
-3. Configures environment variables and secrets
-4. Sets up monitoring and logging
+1. Validates environment and builds Docker images for frontend and backend
+2. Pushes images to Amazon ECR repositories with proper tagging
+3. Provisions AWS App Runner services with Terraform
+4. Configures environment variables, secrets, and networking
+5. Sets up monitoring, logging, and health checks
+6. Updates DNS and SSL certificates for production access
 
 #### 3. Environment-Specific Configuration
-- **Development:** Uses local PostgreSQL and Redis
+- **Development:** Uses local PostgreSQL/Redis or dev branch deployment
 - **Production:** Uses AWS RDS PostgreSQL and ElastiCache Redis
-- **AI Services:** Configurable between Ollama (local) and AWS Bedrock
+- **AI Services:** Configurable between Ollama (local) and AWS Bedrock (production)
+- **Branch Strategy:** Dev branch deployment enabled for staging/testing
 
 ## Usage Guide
 
 ### Dashboard Navigation
 The main dashboard provides:
-- **Overview:** Real-time inventory metrics and key performance indicators
-- **Forecast:** AI-powered demand predictions and trend analysis
-- **Analysis:** Deep dive into inventory patterns and recommendations
+- **Overview:** Real-time inventory metrics, key performance indicators, and IntelligenceHub with AI analysis
+- **Forecast:** AI-powered demand predictions, trend analysis, and individual item forecasting
 
 ### Core Workflows
 
@@ -238,10 +257,12 @@ The main dashboard provides:
 4. **Activity Monitoring:** Track all inventory changes through comprehensive logs
 
 #### AI-Powered Insights
-1. **Natural Language Queries:** Ask questions about inventory levels, forecasts, and trends
-2. **Demand Forecasting:** View AI-generated predictions for stock replenishment
-3. **Velocity Analysis:** Understand product movement patterns and optimize inventory
-4. **Recommendations:** Receive AI-driven suggestions for inventory optimization
+1. **Conversational AI:** Interact with advanced chatbot featuring session persistence and conversation history
+2. **Natural Language Queries:** Ask questions about inventory levels, forecasts, and trends with intelligent intent classification
+3. **Demand Forecasting:** View AI-generated predictions for stock replenishment using Spring AI framework
+4. **Velocity Analysis:** Understand product movement patterns with interactive Recharts visualizations
+5. **Entity Extraction:** Leverage OpenNLP for automated inventory entity recognition and processing
+6. **Recommendations:** Receive AI-driven suggestions for inventory optimization from multiple AI models
 
 #### Multi-Tenant Operations
 1. **Organization Management:** Switch between organizations seamlessly
@@ -253,15 +274,17 @@ The main dashboard provides:
 
 ### Code Quality Standards
 - Follow language-specific style guides (Java Code Conventions, ESLint rules)
-- Maintain test coverage above 80% for critical business logic
+- Maintain comprehensive test coverage using Jest, TestContainers, and Awaitility
 - Use meaningful commit messages following conventional commit format
 - Document complex business logic and architectural decisions
+- Implement proper error handling and logging for AI service integrations
 
 ### Testing Requirements
-- Unit tests for all service layer components
-- Integration tests for database operations
-- End-to-end tests for critical user workflows
-- Performance tests for AI service integrations
+- Unit tests for all service layer components with Jest and Spring Boot Test
+- Integration tests for database operations using TestContainers
+- End-to-end tests for critical user workflows and AI interactions
+- Performance tests for AI service integrations and response times
+- Multi-tenant data isolation testing with comprehensive coverage
 
 ## Troubleshooting
 
@@ -280,10 +303,19 @@ The main dashboard provides:
 - Review organization and user permissions
 
 #### AI Service Configuration Errors
-- Confirm Ollama service is running (for local development)
-- Verify AWS Bedrock credentials and permissions
-- Check AI model availability and configuration
-- Review rate limiting and caching settings
+- Confirm Ollama service is running and accessible (for local development)
+- Verify AWS Bedrock credentials, permissions, and model availability
+- Check Spring AI framework configuration and version compatibility
+- Review OpenNLP entity extraction setup and model loading
+- Monitor AI service response times and implement proper error handling
+- Check conversation history persistence and session management
+
+#### Frontend Build Issues
+- Verify Node.js 18+ and npm dependencies are properly installed
+- Check TypeScript configuration and compilation errors
+- Review Vite build configuration and environment variables
+- Ensure Clerk authentication keys are correctly configured
+- Monitor Recharts integration and visualization performance
 
 #### Deployment Troubleshooting
 - Check AWS credentials and permissions
@@ -292,10 +324,13 @@ The main dashboard provides:
 - Ensure App Runner service health checks pass
 
 ### Performance Optimization
-- Monitor Redis cache hit rates
-- Review database query performance
-- Optimize AI service response times
-- Track memory usage in App Runner services
+- Monitor Redis cache hit rates and optimize caching strategies for AI responses
+- Review database query performance and implement proper indexing for tenant isolation
+- Optimize AI service response times with Spring AI framework and model selection
+- Track memory usage in App Runner services and implement proper scaling
+- Optimize Recharts rendering performance for large datasets
+- Monitor conversation history storage and implement efficient session management
+- Implement proper rate limiting and usage tracking for multi-tenant environments
 
 ## License and Support
 

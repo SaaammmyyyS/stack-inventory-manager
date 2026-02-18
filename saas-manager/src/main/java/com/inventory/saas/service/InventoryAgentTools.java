@@ -192,7 +192,8 @@ public class InventoryAgentTools {
                     amount,
                     t,
                     reason != null ? reason : "Agent-recorded movement",
-                    performedBy != null ? performedBy : "Inventory Agent"
+                    performedBy != null ? performedBy : "Inventory Agent",
+                    tenantId
             );
             Map<String, Object> result = new HashMap<>();
             result.put("success", true);

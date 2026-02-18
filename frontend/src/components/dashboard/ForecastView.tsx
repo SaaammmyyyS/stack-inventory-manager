@@ -22,6 +22,7 @@ export function ForecastView({ isPro }: ForecastViewProps) {
       setIsLoading(true);
       try {
         const { data } = await api.get('/api/v1/forecast/all');
+        console.log('Forecast data received:', data?.length, 'items');
         setInsights(data || []);
       } catch (e: any) {
         console.error("Forecast Error:", e);
@@ -52,6 +53,18 @@ export function ForecastView({ isPro }: ForecastViewProps) {
       <div className="py-40 flex flex-col items-center justify-center">
         <Loader2 className="animate-spin text-blue-600 mb-6" size={40} />
         <p className="text-slate-400 font-black uppercase text-xs tracking-[0.2em]">Generating AI Predictions...</p>
+      </div>
+    );
+  }
+
+  if (insights.length === 0) {
+    return (
+      <div className="bg-white border border-slate-200 rounded-[2.5rem] p-20 text-center shadow-sm">
+        <div className="bg-amber-50 w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-8 text-amber-600">
+          <LayoutGrid size={40} />
+        </div>
+        <h2 className="text-3xl font-black text-slate-900 mb-4">No Forecast Data</h2>
+        <p className="text-slate-500 font-bold max-w-md mx-auto">Start recording inventory transactions to enable AI-powered forecasting and health monitoring.</p>
       </div>
     );
   }

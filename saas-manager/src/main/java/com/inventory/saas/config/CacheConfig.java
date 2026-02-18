@@ -15,11 +15,22 @@ public class CacheConfig {
 
     @Bean
     public CacheManager cacheManager() {
-        CaffeineCacheManager cacheManager = new CaffeineCacheManager("ai-analysis");
-        cacheManager.setCaffeine(Caffeine.newBuilder()
+        CaffeineCacheManager cacheManager = new CaffeineCacheManager();
+
+        cacheManager.registerCustomCache("intent-classification",
+            Caffeine.newBuilder()
+                .expireAfterWrite(5, TimeUnit.MINUTES)
+                .maximumSize(1000)
+                .recordStats()
+                .build());
+
+        cacheManager.registerCustomCache("ai-analysis",
+            Caffeine.newBuilder()
                 .expireAfterWrite(30, TimeUnit.MINUTES)
                 .maximumSize(1000)
-                .recordStats());
+                .recordStats()
+                .build());
+
         return cacheManager;
     }
 }
