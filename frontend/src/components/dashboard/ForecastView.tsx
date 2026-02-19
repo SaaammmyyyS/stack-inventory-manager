@@ -22,10 +22,8 @@ export function ForecastView({ isPro }: ForecastViewProps) {
       setIsLoading(true);
       try {
         const { data } = await api.get('/api/v1/forecast/all');
-        console.log('Forecast data received:', data?.length, 'items');
         setInsights(data || []);
       } catch (e: any) {
-        console.error("Forecast Error:", e);
         if (e.response?.status !== 402) {
           toast.error("Could not load health matrix");
         }

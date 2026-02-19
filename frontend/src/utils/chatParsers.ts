@@ -11,7 +11,7 @@ const extractAllJson = (content: string) => {
         const parsed = JSON.parse(jsonContent);
         validJsons.push(parsed);
       } catch (e) {
-        console.warn('Fenced JSON parse failed:', jsonContent.substring(0, 100) + '...', e);
+        // JSON parsing failed
       }
     }
   }
@@ -23,7 +23,7 @@ const extractAllJson = (content: string) => {
         const parsed = JSON.parse(jsonObj);
         validJsons.push(parsed);
       } catch (e) {
-        console.warn('Object JSON parse failed:', jsonObj.substring(0, 100) + '...', e);
+        // JSON parsing failed
       }
     }
   }
@@ -122,7 +122,6 @@ const repairJson = (jsonString: string): string => {
 
     if (missingBraces > 0) {
       repaired += '}'.repeat(missingBraces);
-      console.warn(`Added ${missingBraces} closing braces to repair JSON`);
     }
   }
 
@@ -144,7 +143,6 @@ const parseFencedJson = (content: string): { parsed: ParsedResponse | null; debu
   const repairedJson = repairJson(jsonContent);
 
   if (!isValidJson(repairedJson)) {
-    console.warn('Invalid JSON structure detected:', repairedJson.substring(0, 200) + '...');
     return { parsed: null, debugInfo: { source: 'fenced_json_invalid' } };
   }
 
@@ -153,8 +151,6 @@ const parseFencedJson = (content: string): { parsed: ParsedResponse | null; debu
     const debugInfo: DebugInfo = { source: 'fenced_json', parsed };
     return { parsed, debugInfo };
   } catch (e) {
-    console.warn('JSON parsing failed:', e);
-    console.warn('JSON content:', repairedJson.substring(0, 500));
     return { parsed: null, debugInfo: { source: 'fenced_json_parse_error', error: e instanceof Error ? e.message : 'Unknown error' } };
   }
 };

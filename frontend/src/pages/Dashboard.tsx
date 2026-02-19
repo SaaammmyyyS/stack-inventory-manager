@@ -70,7 +70,6 @@ export default function Dashboard() {
         description: "Your weekly inventory audit is ready."
       });
     } catch (error: any) {
-      console.error("Download error:", error);
       if (error.response?.status !== 429 && error.response?.status !== 402) {
         toast.error("Export Error", {
           description: "Unable to generate PDF at this time."

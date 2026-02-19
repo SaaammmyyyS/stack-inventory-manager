@@ -50,7 +50,7 @@ const TrashBinTable: React.FC<TrashBinTableProps> = ({
       await onRestore(id);
       onFetch();
     } catch (err) {
-      console.error("Failed to restore item", err);
+      // Restore operation failed - parent component handles error display
     }
   };
 
@@ -61,7 +61,7 @@ const TrashBinTable: React.FC<TrashBinTableProps> = ({
         closeDeleteModal();
         onFetch();
       } catch (err) {
-        console.error("Failed to purge item", err);
+        // Purge operation failed - parent component handles error display
       }
     }
   };

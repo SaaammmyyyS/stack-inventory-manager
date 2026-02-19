@@ -37,7 +37,6 @@ export const useChatApi = () => {
 
       const validation = validateResponse(reply);
       if (!validation.isValid) {
-        console.warn('Response validation failed:', validation.issue, reply.substring(0, 200) + '...');
         toast.error("Response Error", {
           description: `Received incomplete response: ${validation.issue}`
         });

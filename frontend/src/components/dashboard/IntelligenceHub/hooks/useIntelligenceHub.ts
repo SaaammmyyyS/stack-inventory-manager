@@ -19,7 +19,7 @@ export function useIntelligenceHub(tenantId: string, isPro: boolean) {
       const { data } = await api.get(`/api/transactions/recent`);
       setActivities(data || []);
     } catch (e) {
-      console.error('Fetch error:', e);
+      // Activity fetch failed - using empty array as fallback
     } finally {
       setIsActivityLoading(false);
     }
@@ -39,7 +39,6 @@ export function useIntelligenceHub(tenantId: string, isPro: boolean) {
         toast.success("Intelligence report generated");
       }
     } catch (e: any) {
-      console.error('AI Error:', e);
       if (e.response?.status !== 402 && !isAutoLoad) {
         toast.error("Failed to connect to Intelligence Service");
       }

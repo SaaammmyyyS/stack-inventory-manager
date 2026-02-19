@@ -42,7 +42,6 @@ export const ForecastMessage: React.FC<ForecastMessageProps> = ({ data }) => {
     <div className="space-y-3">
       {data.map((item, index) => {
         if (!item || typeof item !== 'object') {
-          console.warn(`Invalid forecast item at index ${index}:`, item);
           return null;
         }
 

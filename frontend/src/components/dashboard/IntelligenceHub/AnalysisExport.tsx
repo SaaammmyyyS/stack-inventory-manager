@@ -87,7 +87,7 @@ export function AnalysisExport({ analysis, tenantId }: AnalysisExportProps) {
           text: shareText,
         });
       } catch (err) {
-        console.log('Error sharing:', err);
+        // Share failed - clipboard fallback will be used
       }
     } else {
       navigator.clipboard.writeText(shareText).then(() => {

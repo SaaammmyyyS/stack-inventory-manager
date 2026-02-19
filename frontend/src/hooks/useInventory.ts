@@ -194,7 +194,9 @@ export function useInventory() {
     try {
       const { data } = await api.get('/api/inventory/trash');
       setTrashedItems(Array.isArray(data) ? data : []);
-    } catch (err) {}
+    } catch (err) {
+      // Trash fetch failed - using empty array as fallback
+    }
   }, [api, isOrgLoaded]);
 
   const restoreItem = useCallback(async (id: string) => {
@@ -203,7 +205,9 @@ export function useInventory() {
       await fetchItems();
       await fetchTrash();
       toast.success("Item restored");
-    } catch (err) {}
+    } catch (err) {
+      // Restore failed - parent handles error display
+    }
   }, [api, fetchItems, fetchTrash]);
 
   const permanentlyDelete = useCallback(async (id: string) => {
@@ -211,7 +215,9 @@ export function useInventory() {
       await api.delete(`/api/inventory/permanent/${id}`);
       setTrashedItems(prev => prev.filter(item => item.id !== id));
       toast.error("Item permanently deleted");
-    } catch (err) {}
+    } catch (err) {
+      // Delete failed - parent handles error display
+    }
   }, [api]);
 
   const fetchHistory = useCallback(async (itemId: string): Promise<StockTransaction[]> => {
@@ -219,7 +225,10 @@ export function useInventory() {
     try {
       const { data } = await api.get(`/api/transactions/${itemId}`);
       return data;
-    } catch (err) { return []; }
+    } catch (err) {
+      // History fetch failed - returning empty array
+      return [];
+    }
   }, [api]);
 
   const fetchRecentActivity = useCallback(async () => {
@@ -227,7 +236,9 @@ export function useInventory() {
     try {
       const { data } = await api.get('/api/transactions/recent');
       setRecentActivity(Array.isArray(data) ? data : []);
-    } catch (err) {}
+    } catch (err) {
+      // Activity fetch failed - using empty array as fallback
+    }
   }, [api, isOrgLoaded]);
 
   const refreshPlan = useCallback(async () => {

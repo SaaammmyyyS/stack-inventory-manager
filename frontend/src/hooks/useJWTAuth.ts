@@ -25,12 +25,10 @@ export function useJWTAuth() {
           setPlan(jwtPlan);
 
         } else {
-          console.warn('No token available for JWT parsing');
           setIsAdmin(false);
           setPlan('free');
         }
       } catch (error) {
-        console.error('JWT parsing failed:', error);
         setError('Failed to parse authorization token');
         setIsAdmin(false);
         setPlan('free');
