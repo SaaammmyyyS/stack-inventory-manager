@@ -6,6 +6,8 @@ import com.inventory.saas.config.TenantContext;
 import com.inventory.saas.dto.StockAIInsightDTO;
 import com.inventory.saas.dto.StockMovementResponseDTO;
 import com.inventory.saas.exception.ResourceNotFoundException;
+import com.inventory.saas.exception.ValidationException;
+import com.inventory.saas.exception.BusinessLogicException;
 import com.inventory.saas.model.InventoryItem;
 import com.inventory.saas.model.StockTransaction;
 import com.inventory.saas.repository.InventoryRepository;
@@ -111,19 +113,27 @@ public class InventoryAgentTools {
 
     public String getItemTransactionHistory(String itemId) {
         String tenantId = TenantContext.getTenantId();
-        if (tenantId == null) return NO_TENANT_MSG;
-        if (itemId == null || itemId.isBlank()) return "Error: itemId is required.";
+        if (tenantId == null) {
+            throw new ValidationException("No tenant context found");
+        }
+        if (itemId == null || itemId.isBlank()) {
+            throw new ValidationException("itemId is required", "itemId", itemId, "itemId cannot be null or empty");
+        }
+
         UUID id;
         try {
             id = UUID.fromString(itemId);
         } catch (IllegalArgumentException e) {
-            return "Error: Invalid item ID format.";
+            throw new ValidationException("Invalid item ID format", "itemId", itemId, "Must be a valid UUID");
         }
-        InventoryItem item = inventoryRepository.findById(id).orElse(null);
-        if (item == null) return "Error: Item not found.";
+
+        InventoryItem item = inventoryRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Item not found", "InventoryItem", id));
+
         if (!tenantId.equals(item.getTenantId())) {
-            return "Error: Item does not belong to the current tenant.";
+            throw new BusinessLogicException("Item does not belong to the current tenant");
         }
+
         try {
             List<StockTransaction> history = inventoryService.getItemHistory(id);
             List<Map<String, Object>> data = history.stream().map(t -> {
@@ -137,8 +147,8 @@ public class InventoryAgentTools {
             }).collect(Collectors.toList());
             return objectMapper.writeValueAsString(data);
         } catch (JsonProcessingException e) {
-            logger.warn("Failed to serialize item history", e);
-            return "Failed to serialize item history.";
+            logger.warn("Failed to serialize item history for item: {}", id, e);
+            throw new BusinessLogicException("Failed to serialize item history", e);
         }
     }
 
@@ -168,29 +178,41 @@ public class InventoryAgentTools {
 
     public String recordStockMovement(String itemId, int amount, String type, String reason, String performedBy) {
         String tenantId = TenantContext.getTenantId();
-        if (tenantId == null) return NO_TENANT_MSG;
-        if (itemId == null || itemId.isBlank()) return "Error: itemId is required.";
+        if (tenantId == null) {
+            throw new ValidationException("No tenant context found");
+        }
+        if (itemId == null || itemId.isBlank()) {
+            throw new ValidationException("itemId is required", "itemId", itemId, "itemId cannot be null or empty");
+        }
+
         UUID id;
         try {
             id = UUID.fromString(itemId);
         } catch (IllegalArgumentException e) {
-            return "Error: Invalid item ID format.";
+            throw new ValidationException("Invalid item ID format", "itemId", itemId, "Must be a valid UUID");
         }
-        InventoryItem item = inventoryRepository.findById(id).orElse(null);
-        if (item == null) return "Error: Item not found.";
+
+        InventoryItem item = inventoryRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Item not found", "InventoryItem", id));
+
         if (!tenantId.equals(item.getTenantId())) {
-            return "Error: Item does not belong to the current tenant.";
+            throw new BusinessLogicException("Item does not belong to the current tenant");
         }
-        if (amount <= 0) return "Error: Amount must be a positive integer.";
-        String t = (type != null && type.trim().isEmpty()) ? "STOCK_IN" : (type == null ? "STOCK_IN" : type.trim().toUpperCase());
-        if (!"STOCK_IN".equals(t) && !"STOCK_OUT".equals(t)) {
-            return "Error: Type must be STOCK_IN or STOCK_OUT.";
+
+        if (amount <= 0) {
+            throw new ValidationException("Amount must be a positive integer", "amount", amount, "Must be greater than 0");
         }
+
+        String movementType = (type != null && type.trim().isEmpty()) ? "STOCK_IN" : (type == null ? "STOCK_IN" : type.trim().toUpperCase());
+        if (!"STOCK_IN".equals(movementType) && !"STOCK_OUT".equals(movementType)) {
+            throw new ValidationException("Type must be STOCK_IN or STOCK_OUT", "type", type, "Must be STOCK_IN or STOCK_OUT");
+        }
+
         try {
             StockTransaction tx = inventoryService.recordMovement(
                     id,
                     amount,
-                    t,
+                    movementType,
                     reason != null ? reason : "Agent-recorded movement",
                     performedBy != null ? performedBy : "Inventory Agent",
                     tenantId
@@ -203,10 +225,10 @@ public class InventoryAgentTools {
             result.put("quantityChange", tx.getQuantityChange());
             return objectMapper.writeValueAsString(result);
         } catch (ResourceNotFoundException e) {
-            return "Error: Item not found.";
+            throw new ResourceNotFoundException("Item not found during movement recording", "InventoryItem", id);
         } catch (JsonProcessingException e) {
-            logger.warn("Failed to serialize record result", e);
-            return "Movement recorded but failed to serialize result.";
+            logger.warn("Failed to serialize movement result for item: {}", id, e);
+            throw new BusinessLogicException("Movement recorded but failed to serialize result", e);
         }
     }
 }

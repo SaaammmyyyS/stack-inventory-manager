@@ -6,13 +6,14 @@ import Dashboard from "./pages/Dashboard";
 import BillingView from "./pages/BillingView";
 import { Package, Loader2 } from 'lucide-react';
 import { Toaster } from 'sonner';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 export default function App() {
   const { isLoaded: isUserLoaded } = useUser();
   const { isLoaded: isOrgLoaded } = useOrganization();
 
   return (
-    <>
+    <ErrorBoundary>
       <Toaster position="top-right" richColors closeButton />
 
       {(!isUserLoaded || !isOrgLoaded) ? (
@@ -53,7 +54,7 @@ export default function App() {
           </SignedIn>
         </>
       )}
-    </>
+    </ErrorBoundary>
   );
 }
 

@@ -2,7 +2,9 @@ package com.inventory.saas.service;
 
 import com.inventory.saas.dto.InventoryTrashDTO;
 import com.inventory.saas.dto.StockMovementResponseDTO;
+import com.inventory.saas.exception.ConflictException;
 import com.inventory.saas.exception.ResourceNotFoundException;
+import com.inventory.saas.exception.ValidationException;
 import com.inventory.saas.model.InventoryItem;
 import com.inventory.saas.model.StockTransaction;
 import com.inventory.saas.repository.InventoryRepository;
@@ -53,7 +55,11 @@ public class InventoryService {
         if (item.getSku() != null && !item.getSku().trim().isEmpty()) {
             boolean exists = repository.existsBySkuAndTenantId(item.getSku(), item.getTenantId());
             if (exists) {
-                throw new RuntimeException("Product with SKU '" + item.getSku() + "' already exists.");
+                throw new ConflictException(
+                    "Product with SKU '" + item.getSku() + "' already exists.",
+                    "sku",
+                    item.getSku()
+                );
             }
         }
         return repository.save(item);

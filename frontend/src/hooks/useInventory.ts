@@ -2,6 +2,7 @@ import { useState, useCallback, useTransition, useMemo } from 'react';
 import { useAuth, useOrganization, useUser } from "@clerk/clerk-react";
 import { toast } from "sonner";
 import axios from "axios";
+import { errorService } from "../services/errorService";
 import { useJWTAuth } from "./useJWTAuth";
 
 export interface InventoryItem {
