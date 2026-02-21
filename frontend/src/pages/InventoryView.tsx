@@ -20,6 +20,7 @@ import ActivityLogDrawer from '../components/inventory/ActivityLogDrawer';
 import DeleteConfirmModal from '../components/inventory/DeleteConfirmModal';
 import { UsageWidget } from '../components/UsageWidget';
 import { useInventoryHandlers } from '@/hooks/useInventoryHandlers';
+import { useDebounce } from '@/hooks/useDebounce';
 
 export default function InventoryView() {
   const h = useInventoryHandlers();
@@ -30,27 +31,28 @@ export default function InventoryView() {
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 10;
 
-  const isLimitReached = h.skuLimit > 0 && h.totalCount >= h.skuLimit;
-  const isNearLimit = h.skuLimit > 0 && h.totalCount >= (h.skuLimit * 0.8) && !isLimitReached;
+  // Debounce search to prevent excessive API calls
+  const debouncedSearch = useDebounce(search, 300);
+  const debouncedCategory = useDebounce(category, 200);
+
+  const isLimitReached = h.skuLimit > 0 && h.pagination.totalCount >= h.skuLimit;
+  const isNearLimit = h.skuLimit > 0 && h.pagination.totalCount >= (h.skuLimit * 0.8) && !isLimitReached;
 
   const isEffectivelyLoading = h.isLoading &&
     (h.currentView === 'active' ? h.items.length === 0 : h.trashedItems.length === 0);
 
   useEffect(() => {
     if (h.currentView === 'active') {
-      const timer = setTimeout(() => {
-        h.fetchItems({
-          page,
-          limit: PAGE_SIZE,
-          search,
-          category: category === 'all' ? '' : category
-        });
-      }, 400);
-      return () => clearTimeout(timer);
+      h.fetchItems({
+        page,
+        limit: PAGE_SIZE,
+        search: debouncedSearch,
+        category: debouncedCategory === 'all' ? '' : debouncedCategory
+      });
     } else {
       h.fetchTrash();
     }
-  }, [search, category, page, h.currentView, h.fetchItems, h.fetchTrash]);
+  }, [debouncedSearch, debouncedCategory, page, h.currentView, h.fetchItems, h.fetchTrash]);
 
   if (!isAuthLoaded) return null;
 
@@ -59,7 +61,7 @@ export default function InventoryView() {
       {h.currentPlan === 'free' && h.currentView === 'active' && h.skuLimit > 0 && (
         <div className="mt-8">
           <UsageWidget
-            current={h.totalCount}
+            current={h.pagination.totalCount}
             limit={h.skuLimit}
             plan={h.currentPlan}
             label="Inventory Usage"
@@ -152,10 +154,10 @@ export default function InventoryView() {
           h.currentView === 'active' ? (
             <ActiveInventoryTable
               items={h.items}
-              totalCount={h.totalCount}
-              currentPage={page}
-              pageSize={PAGE_SIZE}
-              onPageChange={setPage}
+              totalCount={h.pagination.totalCount}
+              currentPage={h.pagination.currentPage}
+              pageSize={h.pagination.pageSize}
+              onPageChange={(pageNumber) => h.fetchItems({ page: pageNumber, limit: PAGE_SIZE, search, category: category === 'all' ? '' : category })}
               onAdjust={(id, name, type) => {
                 const item = h.items.find(i => i.id === id);
                 h.setAdjustItem({ id, name, quantity: item?.quantity || 0, type });

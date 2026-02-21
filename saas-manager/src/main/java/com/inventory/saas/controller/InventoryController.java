@@ -64,7 +64,7 @@ public class InventoryController {
             @RequestParam(required = false) String search,
             @RequestParam(required = false) String category
     ) {
-        Page<InventoryItem> itemPage = service.getAllItemsPaginated(tenantId, search, category, page - 1, limit);
+        Page<InventoryItem> itemPage = service.getAllItemsPaginated(tenantId, search, category, page, limit);
         List<InventoryItemDTO> dtos = itemPage.getContent().stream()
                 .map(this::convertToDto)
                 .collect(Collectors.toList());
@@ -72,6 +72,11 @@ public class InventoryController {
         return ResponseEntity.ok(PaginatedResponseDTO.<InventoryItemDTO>builder()
                 .items(dtos)
                 .total(itemPage.getTotalElements())
+                .currentPage(itemPage.getNumber() + 1)
+                .totalPages(itemPage.getTotalPages())
+                .pageSize(itemPage.getSize())
+                .hasNext(itemPage.hasNext())
+                .hasPrevious(itemPage.hasPrevious())
                 .build());
     }
 

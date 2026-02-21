@@ -9,4 +9,9 @@ import java.util.List;
 public class PaginatedResponseDTO<T> {
     private List<T> items;
     private long total;
+    private int currentPage;
+    private int totalPages;
+    private int pageSize;
+    private boolean hasNext;
+    private boolean hasPrevious;
 }

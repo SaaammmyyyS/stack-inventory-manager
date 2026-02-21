@@ -38,7 +38,8 @@ public class InventoryService {
     }
 
     public Page<InventoryItem> getAllItemsPaginated(String tenantId, String search, String category, int page, int size) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by("name").ascending());
+        int zeroBasedPage = Math.max(0, page - 1);
+        Pageable pageable = PageRequest.of(zeroBasedPage, size, Sort.by("name").ascending());
         if ((search != null && !search.isEmpty()) || (category != null && !category.isEmpty())) {
             return repository.findByFilters(tenantId, search, category, pageable);
         }

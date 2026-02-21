@@ -4,6 +4,8 @@ import { toast } from "sonner";
 import axios from "axios";
 import { errorService } from "../services/errorService";
 import { useJWTAuth } from "./useJWTAuth";
+import { useDebounce } from "./useDebounce";
+import type { PaginatedResponse, FetchOptions, PaginationState } from "../types/pagination";
 
 export interface InventoryItem {
   id: string;
@@ -28,13 +30,6 @@ export interface StockTransaction {
   createdAt: string;
 }
 
-export interface FetchOptions {
-  page?: number;
-  limit?: number;
-  search?: string;
-  category?: string;
-}
-
 export function useInventory() {
   const { getToken } = useAuth();
   const { user } = useUser();
@@ -42,7 +37,15 @@ export function useInventory() {
   const { isAdmin: jwtIsAdmin, plan: jwtPlan, isLoading: jwtLoading } = useJWTAuth();
 
   const [items, setItems] = useState<InventoryItem[]>([]);
-  const [totalCount, setTotalCount] = useState(0);
+  const [pagination, setPagination] = useState<PaginationState>({
+    currentPage: 1,
+    pageSize: 10,
+    totalCount: 0,
+    totalPages: 0,
+    hasNext: false,
+    hasPrevious: false,
+    isLoading: false
+  });
 
   const [skuLimit, setSkuLimit] = useState(0);
   const [aiUsage, setAiUsage] = useState(0);
@@ -84,7 +87,7 @@ export function useInventory() {
           if (val && typeof val === 'string') {
             const [curr, lim] = val.split('/').map(Number);
             if (type === 'sku') {
-              setTotalCount(curr);
+              setPagination(prev => ({ ...prev, totalCount: curr }));
               setSkuLimit(lim);
             } else {
               setAiUsage(curr);
@@ -111,11 +114,23 @@ export function useInventory() {
   const fetchItems = useCallback(async (options: FetchOptions = {}) => {
     if (!isOrgLoaded) return;
     setIsLoading(true);
+    setPagination(prev => ({ ...prev, isLoading: true }));
     try {
-      const { data } = await api.get('/api/inventory', { params: options });
+      const { data } = await api.get<PaginatedResponse<InventoryItem>>('/api/inventory', { params: options });
       setItems(data.items || []);
+      setPagination(prev => ({
+        ...prev,
+        currentPage: data.currentPage || 1,
+        pageSize: data.pageSize || 10,
+        totalCount: data.total || 0,
+        totalPages: data.totalPages || 0,
+        hasNext: data.hasNext || false,
+        hasPrevious: data.hasPrevious || false,
+        isLoading: false
+      }));
     } catch (err) {
       setError("Could not load inventory");
+      setPagination(prev => ({ ...prev, isLoading: false }));
     } finally {
       setIsLoading(false);
     }
@@ -251,7 +266,7 @@ export function useInventory() {
   }, [organization, fetchItems]);
 
   return {
-    items, totalCount, skuLimit, aiUsage, aiLimit, trashedItems, recentActivity,
+    items, pagination, skuLimit, aiUsage, aiLimit, trashedItems, recentActivity,
     isLoading, error, setError, isPending, isAdmin, currentPlan,
     addItem, updateItem, deleteItem, restoreItem,
     permanentlyDelete, recordMovement, fetchTrash,
