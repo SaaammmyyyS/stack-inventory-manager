@@ -31,7 +31,6 @@ export default function InventoryView() {
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 10;
 
-  // Debounce search to prevent excessive API calls
   const debouncedSearch = useDebounce(search, 300);
   const debouncedCategory = useDebounce(category, 200);
 
