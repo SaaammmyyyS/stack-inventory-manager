@@ -3,6 +3,8 @@ import { ActivityFeed } from "./ActivityFeed";
 import { AIAnalysisPanel } from "./AIAnalysisPanel";
 import { useIntelligenceHub } from "./hooks/useIntelligenceHub";
 import { IntelligenceHubProps } from "./types";
+import { DateRange } from "../StockVelocityChart/types";
+import { useCallback } from "react";
 
 export function IntelligenceHub({ tenantId, isPro }: IntelligenceHubProps) {
   const {
@@ -12,8 +14,14 @@ export function IntelligenceHub({ tenantId, isPro }: IntelligenceHubProps) {
     isAiLoading,
     activeTab,
     setActiveTab,
-    runAnalysis
+    runAnalysis,
+    loadActivities
   } = useIntelligenceHub(tenantId, isPro);
+
+  const handleDateRangeChange = useCallback((dateRange: DateRange) => {
+    console.log('handleDateRangeChange called with:', dateRange);
+    loadActivities(dateRange);
+  }, [loadActivities]);
 
   return (
     <div className="space-y-6">
@@ -28,7 +36,10 @@ export function IntelligenceHub({ tenantId, isPro }: IntelligenceHubProps) {
         tenantId={tenantId}
       />
 
-      <StockVelocityChart transactions={activities} />
+      <StockVelocityChart
+        transactions={activities}
+        onDateRangeChange={handleDateRangeChange}
+      />
 
       <ActivityFeed activities={activities} isLoading={isActivityLoading} />
 

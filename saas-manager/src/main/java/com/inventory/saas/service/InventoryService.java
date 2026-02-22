@@ -19,6 +19,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -173,7 +174,44 @@ public class InventoryService {
     }
 
     public List<StockMovementResponseDTO> getRecentTransactionsRaw(String tenantId) {
-        List<Map<String, Object>> rawData = transactionRepository.findRecentTransactionsRaw(tenantId);
+        return getRecentTransactionsRaw(tenantId, 10, null, null);
+    }
+
+    public List<StockMovementResponseDTO> getRecentTransactionsRaw(
+            String tenantId, Integer limit, LocalDateTime startDate, LocalDateTime endDate) {
+        Integer effectiveLimit = (limit != null && limit > 0) ?
+            Math.min(limit, 1000) : 10;
+
+        LocalDateTime effectiveStartDate = startDate;
+        LocalDateTime effectiveEndDate = endDate;
+
+        if (effectiveStartDate == null && effectiveEndDate == null) {
+            effectiveEndDate = LocalDateTime.now();
+            effectiveStartDate = effectiveEndDate.minusDays(30);
+        } else if (effectiveStartDate == null) {
+            effectiveStartDate = effectiveEndDate.minusDays(30);
+        } else if (effectiveEndDate == null) {
+            effectiveEndDate = LocalDateTime.now();
+        }
+
+        if (effectiveStartDate.isAfter(effectiveEndDate)) {
+            LocalDateTime temp = effectiveStartDate;
+            effectiveStartDate = effectiveEndDate;
+            effectiveEndDate = temp;
+        }
+
+        logger.info("Getting recent transactions for tenant: {} with limit: {}, date range: {} to {}",
+                   tenantId, effectiveLimit, effectiveStartDate, effectiveEndDate);
+
+        List<Map<String, Object>> rawData;
+
+        if (startDate != null || endDate != null) {
+            rawData = transactionRepository.findRecentTransactionsWithDateRange(
+                tenantId, effectiveLimit, effectiveStartDate, effectiveEndDate);
+        } else {
+            rawData = transactionRepository.findRecentTransactionsRaw(tenantId, effectiveLimit);
+        }
+
         return rawData.stream().map(row -> StockMovementResponseDTO.builder()
                 .id((UUID) row.get("id"))
                 .quantityChange((Integer) row.get("quantityChange"))

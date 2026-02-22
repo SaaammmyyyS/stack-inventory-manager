@@ -1,6 +1,5 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import { Calendar, ChevronDown, X } from 'lucide-react';
-import { useDebounce } from '@/hooks/useDebounce';
 import { DateRange, DateRangeFilterProps } from './types';
 
 const PRESET_RANGES = [
@@ -13,10 +12,25 @@ export function DateRangeFilter({ value, onChange, className = '' }: DateRangeFi
   const [isOpen, setIsOpen] = useState(false);
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');
+  const timeoutRef = useRef<NodeJS.Timeout>();
 
-  const debouncedOnChange = useDebounce((range: DateRange) => {
-    onChange(range);
-  }, 300);
+  const debouncedOnChange = useCallback((range: DateRange) => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+
+    timeoutRef.current = setTimeout(() => {
+      onChange(range);
+    }, 300);
+  }, [onChange]);
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
 
   const handlePresetClick = useCallback((days: number, preset: DateRange['preset']) => {
     const endDate = new Date();

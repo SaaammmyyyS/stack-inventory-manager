@@ -27,8 +27,31 @@ public interface TransactionRepository extends JpaRepository<StockTransaction, U
             "FROM stock_transactions t " +
             "JOIN inventory i ON t.inventory_item_id = i.id " +
             "WHERE t.tenant_id = :tenantId " +
-            "ORDER BY t.created_at DESC LIMIT 10", nativeQuery = true)
-    List<Map<String, Object>> findRecentTransactionsRaw(@Param("tenantId") String tenantId);
+            "ORDER BY t.created_at DESC LIMIT :limit", nativeQuery = true)
+    List<Map<String, Object>> findRecentTransactionsRaw(
+        @Param("tenantId") String tenantId,
+        @Param("limit") Integer limit
+    );
+
+    default List<Map<String, Object>> findRecentTransactionsRaw(String tenantId) {
+        return findRecentTransactionsRaw(tenantId, 10);
+    }
+
+    @Query(value = "SELECT t.id as id, t.quantity_change as quantityChange, t.type as type, " +
+            "t.reason as reason, t.performed_by as performedBy, t.created_at as createdAt, " +
+            "i.name as itemName " +
+            "FROM stock_transactions t " +
+            "JOIN inventory i ON t.inventory_item_id = i.id " +
+            "WHERE t.tenant_id = :tenantId " +
+            "AND (CAST(:startDate AS TIMESTAMP) IS NULL OR t.created_at >= CAST(:startDate AS TIMESTAMP)) " +
+            "AND (CAST(:endDate AS TIMESTAMP) IS NULL OR t.created_at <= CAST(:endDate AS TIMESTAMP)) " +
+            "ORDER BY t.created_at DESC LIMIT :limit", nativeQuery = true)
+    List<Map<String, Object>> findRecentTransactionsWithDateRange(
+        @Param("tenantId") String tenantId,
+        @Param("limit") Integer limit,
+        @Param("startDate") LocalDateTime startDate,
+        @Param("endDate") LocalDateTime endDate
+    );
 
     @Query(value = "SELECT DISTINCT t.performed_by " +
             "FROM stock_transactions t " +

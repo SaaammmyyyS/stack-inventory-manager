@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useEffect, useState } from 'react';
 import {
   XAxis, YAxis, CartesianGrid,
   ResponsiveContainer, AreaChart, Area, Tooltip
@@ -10,41 +10,70 @@ import { useChartData } from './hooks/useChartData';
 import { EnhancedTooltip } from './EnhancedTooltip';
 import { DateRangeFilter } from './DateRangeFilter';
 import { StockTransaction } from '@/types/inventory';
+import { DateRange } from './types';
 
 interface Props {
   transactions: StockTransaction[];
+  onDateRangeChange?: (dateRange: DateRange) => void;
 }
 
-export function StockVelocityChart({ transactions }: Props) {
+const calculateDaysFromRange = (startDate: Date, endDate: Date): number => {
+  if (!startDate || !endDate || isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+    return 30;
+  }
+
+  const days = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+  return Math.max(1, days);
+};
+
+export function StockVelocityChart({ transactions, onDateRangeChange }: Props) {
   const { containerRef, dimensions, isMeasured } = useContainerDimensions();
   const { dateRange, setPresetRange, setCustomRange } = useDateFilter();
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [lastNotifiedRange, setLastNotifiedRange] = useState<DateRange | null>(null);
 
   const chartData = useChartData({
     transactions,
-    dateRange: dateRange.preset === 'custom' ? {
+    dateRange: {
       startDate: dateRange.startDate,
       endDate: dateRange.endDate
-    } : undefined
+    }
   });
 
   const filteredTransactions = useMemo(() => {
-    if (!dateRange) return transactions;
-
     return transactions.filter(transaction => {
       const transactionDate = new Date(transaction.createdAt);
       return transactionDate >= dateRange.startDate && transactionDate <= dateRange.endDate;
     });
   }, [transactions, dateRange]);
 
-  const handleDateRangeChange = (newRange: any) => {
-    if (!newRange) return;
+  const handleDateRangeChange = (newRange: DateRange) => {
+    if (!newRange || !newRange.startDate || !newRange.endDate) return;
 
     if (newRange.preset === 'custom') {
       setCustomRange(newRange.startDate, newRange.endDate);
     } else {
-      setPresetRange(newRange.startDate, newRange.preset);
+      const days = calculateDaysFromRange(newRange.startDate, newRange.endDate);
+      setPresetRange(days, newRange.preset);
     }
   };
+
+  useEffect(() => {
+    if (!onDateRangeChange || !dateRange) return;
+
+    if (isInitialized && lastNotifiedRange &&
+        lastNotifiedRange.startDate.getTime() === dateRange.startDate.getTime() &&
+        lastNotifiedRange.endDate.getTime() === dateRange.endDate.getTime()) {
+      return;
+    }
+
+    onDateRangeChange(dateRange);
+    setLastNotifiedRange(dateRange);
+
+    if (!isInitialized) {
+      setIsInitialized(true);
+    }
+  }, [dateRange, onDateRangeChange, isInitialized, lastNotifiedRange]);
 
   return (
     <div className="bg-white border border-slate-200 rounded-3xl p-8 shadow-sm h-full flex flex-col min-h-[500px]">
