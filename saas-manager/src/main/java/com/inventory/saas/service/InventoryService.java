@@ -90,6 +90,15 @@ public class InventoryService {
 
         evictAiCache(tenantId);
 
+        if (type.equalsIgnoreCase("STOCK_OUT") && item.getQuantity() < amount) {
+            throw new ValidationException(
+                "Insufficient stock for deduction",
+                "quantity",
+                item.getQuantity(),
+                "Cannot deduct " + amount + " units from current stock of " + item.getQuantity()
+            );
+        }
+
         int adjustment = type.equalsIgnoreCase("STOCK_OUT") ? -Math.abs(amount) : Math.abs(amount);
         item.setQuantity(item.getQuantity() + adjustment);
         repository.save(item);
