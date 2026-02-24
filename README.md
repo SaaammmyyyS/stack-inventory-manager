@@ -1,8 +1,8 @@
 # SaaSManager
 
-Enterprise-grade multi-tenant inventory management platform with advanced AI-powered insights, conversational interfaces, and real-time analytics.
+Enterprise-grade multi-tenant inventory management platform with AI-powered insights, conversational interfaces, and real-time analytics.
 
-A comprehensive B2B SaaS solution that provides complete data isolation, intelligent forecasting with conversation history, and scalable infrastructure for modern inventory management needs.
+A comprehensive B2B SaaS solution that provides complete data isolation, intelligent forecasting, and scalable infrastructure for modern inventory management needs.
 
 ## Features
 
@@ -15,12 +15,12 @@ A comprehensive B2B SaaS solution that provides complete data isolation, intelli
 - Activity logging and complete audit trails
 
 ### AI-Powered Intelligence
-- Advanced conversational AI chatbot with session persistence and conversation history
-- Natural language inventory queries with intelligent intent classification
+- Conversational AI chatbot with intelligent intent classification
+- Natural language inventory queries with context-aware responses
 - AI-driven demand forecasting and predictive analytics with Spring AI framework
 - Advanced stock velocity analysis and interactive visualizations using Recharts
 - Automated inventory recommendations with entity extraction using OpenNLP
-- Intent-based query processing system with multi-model AI support (Ollama + AWS Bedrock)
+- Intent-based query processing system with AI model support (Ollama + AWS Bedrock)
 
 ### Enterprise Security & Management
 - Clerk-based authentication and authorization
@@ -41,7 +41,7 @@ A comprehensive B2B SaaS solution that provides complete data isolation, intelli
 - Docker containerization for consistency
 - AWS App Runner for scalable deployment
 - Terraform infrastructure as code
-- High-performance PostgreSQL database
+- PostgreSQL database with Supabase hosting
 - Redis caching layer for optimal performance
 
 ## Architecture Overview
@@ -116,7 +116,8 @@ flowchart TD
 - Java 21 Development Kit
 - Docker and Docker Compose
 - AWS CLI configured (for deployment)
-- PostgreSQL and Redis instances
+- Supabase account (for PostgreSQL database)
+- Upstash Redis account (for caching and rate limiting)
 
 ### Local Development Setup
 
@@ -132,8 +133,10 @@ flowchart TD
    ```
 
 3. **Configure environment variables**
-   - Copy `.env.example` to `.env`
-   - Configure database, authentication, and AI service credentials
+   - Set up Supabase database connection in `saas-manager/.env`
+   - Configure Clerk authentication keys in both frontend and backend
+   - Set up Upstash Redis for caching and rate limiting
+   - Configure AI service credentials (Ollama for local, AWS Bedrock for production)
 
 4. **Start the backend**
    ```bash
@@ -158,19 +161,20 @@ flowchart TD
 
 #### Backend Configuration
 ```bash
-# Database
-DB_URL=jdbc:postgresql://localhost:5432/inventory_saas
-DB_USERNAME=your_username
-DB_PASSWORD=your_password
+# Database (Supabase)
+DB_URL=jdbc:postgresql://aws-1-ap-southeast-1.pooler.supabase.com:6543/postgres?prepareThreshold=0
+DB_USERNAME=postgres.your_username
+DB_PASSWORD=your_supabase_password
 
 # Authentication
 CLERK_ISSUER_URI=https://your-clerk-domain.com
 CLERK_SECRET_KEY=your_clerk_secret_key
 
-# Cache and Rate Limiting
-REDIS_HOST=localhost
+# Cache and Rate Limiting (Upstash Redis)
+REDIS_HOST=your-redis-host.upstash.io
 REDIS_PORT=6379
 REDIS_PASSWORD=your_redis_password
+REDIS_SSL=true
 
 # AI Services
 SPRING_AI_BEDROCK_AWS_REGION=ap-southeast-1
@@ -192,10 +196,6 @@ VITE_API_BASE_URL=http://localhost:8080
 # Redis (for rate limiting and caching)
 VITE_UPSTASH_REDIS_REST_URL=your_redis_rest_url
 VITE_UPSTASH_REDIS_REST_TOKEN=your_redis_rest_token
-
-# Development Settings
-VITE_DEV_MODE=true
-VITE_DEBUG_AI_RESPONSES=false
 ```
 
 ## Deployment
@@ -209,7 +209,7 @@ docker-compose up -d
 This starts:
 - Backend API service on port 8080 with Spring Boot application
 - Frontend UI service on port 80 with Nginx reverse proxy
-- PostgreSQL database and Redis cache (configured separately)
+- External services: Supabase PostgreSQL and Upstash Redis (configured separately)
 - Automatic service dependencies and health checks
 
 ### AWS Production Deployment
@@ -239,7 +239,7 @@ The deployment process:
 - **Development:** Uses local PostgreSQL/Redis or dev branch deployment
 - **Production:** Uses AWS RDS PostgreSQL and ElastiCache Redis
 - **AI Services:** Configurable between Ollama (local) and AWS Bedrock (production)
-- **Branch Strategy:** Dev branch deployment enabled for staging/testing
+- **Branch Strategy:** Main branch deployment only for production safety
 
 ## Usage Guide
 
@@ -257,12 +257,12 @@ The main dashboard provides:
 4. **Activity Monitoring:** Track all inventory changes through comprehensive logs
 
 #### AI-Powered Insights
-1. **Conversational AI:** Interact with advanced chatbot featuring session persistence and conversation history
+1. **Conversational AI:** Interact with intelligent chatbot for inventory queries and assistance
 2. **Natural Language Queries:** Ask questions about inventory levels, forecasts, and trends with intelligent intent classification
 3. **Demand Forecasting:** View AI-generated predictions for stock replenishment using Spring AI framework
 4. **Velocity Analysis:** Understand product movement patterns with interactive Recharts visualizations
 5. **Entity Extraction:** Leverage OpenNLP for automated inventory entity recognition and processing
-6. **Recommendations:** Receive AI-driven suggestions for inventory optimization from multiple AI models
+6. **Recommendations:** Receive AI-driven suggestions for inventory optimization
 
 #### Multi-Tenant Operations
 1. **Organization Management:** Switch between organizations seamlessly
@@ -308,7 +308,6 @@ The main dashboard provides:
 - Check Spring AI framework configuration and version compatibility
 - Review OpenNLP entity extraction setup and model loading
 - Monitor AI service response times and implement proper error handling
-- Check conversation history persistence and session management
 
 #### Frontend Build Issues
 - Verify Node.js 18+ and npm dependencies are properly installed
@@ -329,7 +328,6 @@ The main dashboard provides:
 - Optimize AI service response times with Spring AI framework and model selection
 - Track memory usage in App Runner services and implement proper scaling
 - Optimize Recharts rendering performance for large datasets
-- Monitor conversation history storage and implement efficient session management
 - Implement proper rate limiting and usage tracking for multi-tenant environments
 
 ## License and Support
