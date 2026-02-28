@@ -38,13 +38,22 @@ public class InventoryService {
         this.transactionRepository = transactionRepository;
     }
 
-    public Page<InventoryItem> getAllItemsPaginated(String tenantId, String search, String category, int page, int size) {
+    public Page<InventoryItem> getAllItemsPaginated(String tenantId, String search, String category, String stockStatus, Double minPrice, Double maxPrice, int page, int size) {
         int zeroBasedPage = Math.max(0, page - 1);
         Pageable pageable = PageRequest.of(zeroBasedPage, size, Sort.by("name").ascending());
-        if ((search != null && !search.isEmpty()) || (category != null && !category.isEmpty())) {
-            return repository.findByFilters(tenantId, search, category, pageable);
+
+        if (hasAnyFilter(search, category, stockStatus, minPrice, maxPrice)) {
+            return repository.findByAdvancedFilters(tenantId, search, category, stockStatus, minPrice, maxPrice, pageable);
         }
         return repository.findByTenantIdAndDeletedFalse(tenantId, pageable);
+    }
+
+    private boolean hasAnyFilter(String search, String category, String stockStatus, Double minPrice, Double maxPrice) {
+        return (search != null && !search.isEmpty()) ||
+               (category != null && !category.isEmpty()) ||
+               (stockStatus != null && !stockStatus.isEmpty()) ||
+               (minPrice != null) ||
+               (maxPrice != null);
     }
 
     public Optional<InventoryItem> getItemByIdAndTenant(UUID id, String tenantId) {

@@ -19,7 +19,11 @@ import java.math.BigDecimal;
            @Index(name = "idx_tenant_id", columnList = "tenant_id"),
            @Index(name = "idx_tenant_deleted", columnList = "tenant_id, deleted"),
            @Index(name = "idx_name_search", columnList = "name"),
-           @Index(name = "idx_category", columnList = "category")
+           @Index(name = "idx_category", columnList = "category"),
+           @Index(name = "idx_tenant_category", columnList = "tenant_id, category, deleted"),
+           @Index(name = "idx_price_range", columnList = "price"),
+           @Index(name = "idx_stock_status", columnList = "quantity, min_threshold"),
+           @Index(name = "idx_search_composite", columnList = "tenant_id, deleted, name, sku")
        })
 @SoftDelete(columnName = "deleted", converter = YesNoConverter.class)
 public class InventoryItem {

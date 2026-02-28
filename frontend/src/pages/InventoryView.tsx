@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Plus, Trash2, Loader2, Package, Search, AlertCircle } from 'lucide-react';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -21,22 +21,52 @@ import StockAdjustmentModal from '../components/inventory/StockAdjustmentModal';
 import ActivityLogDrawer from '../components/inventory/ActivityLogDrawer';
 import DeleteConfirmModal from '../components/inventory/DeleteConfirmModal';
 import { UsageWidget } from '../components/UsageWidget';
+import { FilterPanel } from '../components/inventory/FilterPanel';
 import { useInventoryHandlers } from '@/hooks/useInventoryHandlers';
 import { useDebounce } from '@/hooks/useDebounce';
+import { useFilters, FilterState } from '@/hooks/useFilters';
 
 export default function InventoryView() {
   const h = useInventoryHandlers();
   const { isLoaded: isAuthLoaded } = useAuth();
 
-  const [search, setSearch] = useState("");
-  const [category, setCategory] = useState("all");
-  const [page, setPage] = useState(1);
+  const getFiltersFromURL = (): FilterState => {
+    const params = new URLSearchParams(window.location.search);
+    return {
+      search: params.get('search') || '',
+      category: params.get('category') || 'all',
+      stockStatus: (params.get('stockStatus') as FilterState['stockStatus']) || 'all',
+      priceRange: params.get('minPrice') && params.get('maxPrice')
+        ? [parseFloat(params.get('minPrice')!), parseFloat(params.get('maxPrice')!)]
+        : null,
+
+    };
+  };
+
+  const updateURL = (filters: FilterState) => {
+    const params = new URLSearchParams();
+
+    if (filters.search.trim()) params.set('search', filters.search);
+    if (filters.category !== 'all') params.set('category', filters.category);
+    if (filters.stockStatus !== 'all') params.set('stockStatus', filters.stockStatus);
+    if (filters.priceRange) {
+      params.set('minPrice', filters.priceRange[0].toString());
+      params.set('maxPrice', filters.priceRange[1].toString());
+    }
+
+
+    const newURL = `${window.location.pathname}${params.toString() ? '?' + params.toString() : ''}`;
+    window.history.replaceState({}, '', newURL);
+  };
+
+  const filters = useFilters(getFiltersFromURL());
+  const [page, setPage] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return parseInt(params.get('page') || '1', 10);
+  });
   const [density, setDensity] = useState<'compact' | 'comfortable' | 'spacious'>(() => {
     return (localStorage.getItem('inventory-density') as 'compact' | 'comfortable' | 'spacious') || 'comfortable';
   });
-
-  const debouncedSearch = useDebounce(search, 300);
-  const debouncedCategory = useDebounce(category, 200);
 
   const pageSize = {
     compact: 25,
@@ -50,6 +80,18 @@ export default function InventoryView() {
     setPage(1);
   };
 
+  const handleFiltersChange = (newFilters: FilterState) => {
+    filters.updateFilter('search', newFilters.search);
+    filters.updateFilter('category', newFilters.category);
+    filters.updateFilter('stockStatus', newFilters.stockStatus);
+    filters.updateFilter('priceRange', newFilters.priceRange);
+
+    updateURL(newFilters);
+    setPage(1);
+  };
+
+  const categories = useMemo(() => ['Electronics', 'Furniture', 'Apparel', 'Other'], []);
+
   const isLimitReached = h.skuLimit > 0 && h.pagination.totalCount >= h.skuLimit;
   const isNearLimit = h.skuLimit > 0 && h.pagination.totalCount >= (h.skuLimit * 0.8) && !isLimitReached;
 
@@ -61,18 +103,30 @@ export default function InventoryView() {
 
   useEffect(() => {
     if (h.currentView === 'active') {
-      const context = page === 1 && !debouncedSearch && debouncedCategory === 'all' ? 'initial' :
-                     debouncedSearch || debouncedCategory !== 'all' ? 'search' : 'pagination';
+      const filterParams = filters.getApiParams();
+      const context = page === 1 && !filters.hasActiveFilters ? 'initial' :
+                     filters.hasActiveFilters ? 'search' : 'pagination';
+
       h.fetchItems({
         page,
         limit: pageSize,
-        search: debouncedSearch,
-        category: debouncedCategory === 'all' ? '' : debouncedCategory
+        ...filterParams
       }, context);
     } else {
       h.fetchTrash();
     }
-  }, [debouncedSearch, debouncedCategory, page, pageSize, h.currentView, h.fetchItems, h.fetchTrash]);
+  }, [filters.filters, page, pageSize, h.currentView, h.fetchItems, h.fetchTrash, filters.hasActiveFilters, filters.getApiParams]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (page === 1) {
+      params.delete('page');
+    } else {
+      params.set('page', page.toString());
+    }
+    const newURL = `${window.location.pathname}${params.toString() ? '?' + params.toString() : ''}`;
+    window.history.replaceState({}, '', newURL);
+  }, [page]);
 
   if (!isAuthLoaded) return null;
 
@@ -139,29 +193,16 @@ export default function InventoryView() {
       </div>
 
       {h.currentView === 'active' && (
-        <div className="flex flex-col lg:flex-row gap-4 mb-6">
-          <div className="relative flex-1">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 h-4 w-4" />
-            <Input
-              placeholder="Search by SKU or Name..."
-              value={search}
-              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-              className="pl-12 h-14 rounded-2xl border-slate-200 focus:ring-blue-500"
-            />
+        <div className="mb-6">
+          <FilterPanel
+            filters={filters.filters}
+            onFiltersChange={handleFiltersChange}
+            categories={categories}
+            isLoading={h.isLoading || h.isSearching}
+          />
+          <div className="flex justify-end mt-4">
+            <DensitySelector density={density} onDensityChange={handleDensityChange} />
           </div>
-          <Select value={category} onValueChange={(val) => { setCategory(val); setPage(1); }}>
-            <SelectTrigger className="w-full lg:w-[200px] h-14 rounded-2xl border-slate-200 font-bold">
-              <SelectValue placeholder="Category" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Categories</SelectItem>
-              <SelectItem value="Electronics">Electronics</SelectItem>
-              <SelectItem value="Furniture">Furniture</SelectItem>
-              <SelectItem value="Apparel">Apparel</SelectItem>
-              <SelectItem value="Other">Other</SelectItem>
-            </SelectContent>
-          </Select>
-          <DensitySelector density={density} onDensityChange={handleDensityChange} />
         </div>
       )}
 
@@ -183,7 +224,10 @@ export default function InventoryView() {
                 pageSize={pageSize}
                 density={density}
                 isPaginating={h.isPaginating}
-                onPageChange={(pageNumber) => h.fetchItems({ page: pageNumber, limit: pageSize, search, category: category === 'all' ? '' : category }, 'pagination')}
+                onPageChange={(pageNumber) => {
+  const filterParams = filters.getApiParams();
+  h.fetchItems({ page: pageNumber, limit: pageSize, ...filterParams }, 'pagination');
+}}
                 onAdjust={(id, name, type) => {
                   const item = h.items.find(i => i.id === id);
                   h.setAdjustItem({ id, name, quantity: item?.quantity || 0, type });

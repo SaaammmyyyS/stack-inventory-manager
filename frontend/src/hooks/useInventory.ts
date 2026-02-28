@@ -7,6 +7,15 @@ import { useJWTAuth } from "./useJWTAuth";
 import { useDebounce } from "./useDebounce";
 import type { PaginatedResponse, FetchOptions, PaginationState } from "../types/pagination";
 
+export interface FilterOptions {
+  search?: string;
+  category?: string;
+  stockStatus?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  hasPrice?: boolean;
+}
+
 export interface InventoryItem {
   id: string;
   name: string;

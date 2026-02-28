@@ -52,7 +52,7 @@ public class InventoryAgentTools {
             return NO_TENANT_MSG;
         }
         try {
-            Page<InventoryItem> page = inventoryService.getAllItemsPaginated(tenantId, null, null, 0, 100);
+            Page<InventoryItem> page = inventoryService.getAllItemsPaginated(tenantId, null, null, null, null, null, 0, 100);
             logger.info("Found {} inventory items for tenant: {}", page.getTotalElements(), tenantId);
             List<Map<String, Object>> items = page.getContent().stream()
                     .map(item -> {

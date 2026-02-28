@@ -62,9 +62,14 @@ public class InventoryController {
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int limit,
             @RequestParam(required = false) String search,
-            @RequestParam(required = false) String category
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) String stockStatus,
+            @RequestParam(required = false) Double minPrice,
+            @RequestParam(required = false) Double maxPrice
     ) {
-        Page<InventoryItem> itemPage = service.getAllItemsPaginated(tenantId, search, category, page, limit);
+        Page<InventoryItem> itemPage = service.getAllItemsPaginated(
+            tenantId, search, category, stockStatus, minPrice, maxPrice, page, limit
+        );
         List<InventoryItemDTO> dtos = itemPage.getContent().stream()
                 .map(this::convertToDto)
                 .collect(Collectors.toList());
