@@ -9,6 +9,7 @@ interface ActiveInventoryTableProps {
   currentPage: number;
   pageSize: number;
   isAdmin: boolean;
+  density?: 'compact' | 'comfortable' | 'spacious';
   onPageChange: (page: number) => void;
   onAdjust: (id: string, name: string, type: 'STOCK_IN' | 'STOCK_OUT') => void;
   onHistory: (id: string, name: string) => void;
@@ -22,6 +23,7 @@ const ActiveInventoryTable: React.FC<ActiveInventoryTableProps> = ({
   currentPage,
   pageSize,
   isAdmin,
+  density = 'comfortable',
   onPageChange,
   onAdjust,
   onHistory,
@@ -29,6 +31,35 @@ const ActiveInventoryTable: React.FC<ActiveInventoryTableProps> = ({
   onEdit
 }) => {
   const totalPages = Math.ceil(totalCount / pageSize);
+
+  const densityStyles = {
+    compact: {
+      row: 'py-2',
+      productName: 'text-sm',
+      badges: 'text-[8px] px-1 py-0.5',
+      stockDisplay: 'px-3 py-1.5 text-[10px] min-w-[100px]',
+      buttons: 'p-1.5',
+      actionButtons: 'p-2'
+    },
+    comfortable: {
+      row: 'py-5',
+      productName: 'text-lg',
+      badges: 'text-[9px] px-1.5 py-0.5',
+      stockDisplay: 'px-5 py-2.5 text-[11px] min-w-[120px]',
+      buttons: 'p-2',
+      actionButtons: 'p-2.5'
+    },
+    spacious: {
+      row: 'py-6',
+      productName: 'text-xl',
+      badges: 'text-[10px] px-2 py-1',
+      stockDisplay: 'px-6 py-3 text-[12px] min-w-[140px]',
+      buttons: 'p-2.5',
+      actionButtons: 'p-3'
+    }
+  };
+
+  const styles = densityStyles[density];
 
   return (
     <div className="flex flex-col h-full">
@@ -44,74 +75,74 @@ const ActiveInventoryTable: React.FC<ActiveInventoryTableProps> = ({
           <tbody className="divide-y divide-slate-50">
             {items.length > 0 ? (
               items.map((item) => (
-                <tr key={item.id} className="group hover:bg-slate-50/30 transition-all">
-                  <td className="px-8 py-5">
-                    <span className="font-black text-slate-900 block text-lg leading-none mb-1.5 tracking-tight">
+                <tr key={item.id} className={`group hover:bg-slate-50/30 transition-all ${styles.row}`}>
+                  <td className={`px-8 ${styles.row}`}>
+                    <span className={`font-black text-slate-900 block leading-none mb-1.5 tracking-tight ${styles.productName}`}>
                       {item.name}
                     </span>
                     <div className="flex gap-2">
-                      <span className="text-[9px] text-slate-400 font-black uppercase tracking-widest bg-slate-100 px-1.5 py-0.5 rounded">
+                      <span className={`text-slate-400 font-black uppercase tracking-widest bg-slate-100 rounded ${styles.badges}`}>
                         {item.sku || 'NO-SKU'}
                       </span>
-                      <span className="text-[9px] text-blue-500 font-black uppercase tracking-widest bg-blue-50 px-1.5 py-0.5 rounded">
+                      <span className={`text-blue-500 font-black uppercase tracking-widest bg-blue-50 rounded ${styles.badges}`}>
                         {item.category || 'General'}
                       </span>
                     </div>
                   </td>
-                  <td className="px-8 py-5">
+                  <td className={`px-8 ${styles.row}`}>
                     <div className="flex items-center justify-center gap-3">
                       {isAdmin && (
                         <button
                           onClick={() => onAdjust(item.id, item.name, 'STOCK_OUT')}
-                          className="p-2 text-orange-500 hover:bg-orange-50 rounded-xl border border-orange-100 transition-colors"
+                          className={`text-orange-500 hover:bg-orange-50 rounded-xl border border-orange-100 transition-colors ${styles.buttons}`}
                         >
-                          <Minus size={16} strokeWidth={3} />
+                          <Minus size={density === 'compact' ? 14 : 16} strokeWidth={3} />
                         </button>
                       )}
 
-                      <div className={`px-5 py-2.5 rounded-2xl text-[11px] font-black min-w-[120px] text-center border shadow-sm ${
+                      <div className={`rounded-2xl font-black text-center border shadow-sm ${
                         item.quantity > (item.minThreshold || 5)
                           ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
                           : 'bg-rose-50 text-rose-600 border-rose-100 motion-safe:animate-pulse'
-                      }`}>
+                      } ${styles.stockDisplay}`}>
                         {item.quantity} UNITS
                       </div>
 
                       {isAdmin && (
                         <button
                           onClick={() => onAdjust(item.id, item.name, 'STOCK_IN')}
-                          className="p-2 text-blue-500 hover:bg-blue-50 rounded-xl border border-blue-100 transition-colors"
+                          className={`text-blue-500 hover:bg-blue-50 rounded-xl border border-blue-100 transition-colors ${styles.buttons}`}
                         >
-                          <Plus size={16} strokeWidth={3} />
+                          <Plus size={density === 'compact' ? 14 : 16} strokeWidth={3} />
                         </button>
                       )}
                     </div>
                   </td>
-                  <td className="px-8 py-5 text-right">
+                  <td className={`px-8 ${styles.row} text-right`}>
                     <div className="flex justify-end items-center gap-1.5 text-slate-300">
                       {isAdmin && (
                         <button
                           onClick={() => onEdit(item)}
-                          className="hover:text-amber-500 hover:bg-amber-50 p-2.5 rounded-xl transition-all"
+                          className={`hover:text-amber-500 hover:bg-amber-50 rounded-xl transition-all ${styles.actionButtons}`}
                           title="Edit Details"
                         >
-                          <Edit size={18} />
+                          <Edit size={density === 'compact' ? 16 : 18} />
                         </button>
                       )}
                       <button
                         onClick={() => onHistory(item.id, item.name)}
-                        className="hover:text-blue-500 hover:bg-blue-50 p-2.5 rounded-xl transition-all"
+                        className={`hover:text-blue-500 hover:bg-blue-50 rounded-xl transition-all ${styles.actionButtons}`}
                         title="View History"
                       >
-                        <History size={18} />
+                        <History size={density === 'compact' ? 16 : 18} />
                       </button>
                       {isAdmin && (
                         <button
                           onClick={() => onDelete(item.id, item.name)}
-                          className="hover:text-rose-500 hover:bg-rose-50 p-2.5 rounded-xl transition-all"
+                          className={`hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all ${styles.actionButtons}`}
                           title="Move to Trash"
                         >
-                          <Trash2 size={18} />
+                          <Trash2 size={density === 'compact' ? 16 : 18} />
                         </button>
                       )}
                     </div>

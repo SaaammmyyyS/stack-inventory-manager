@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/select";
 
 import ActiveInventoryTable from '../components/inventory/ActiveInventoryTable';
+import DensitySelector from '../components/inventory/DensitySelector';
 import TrashBinTable from '../components/inventory/TrashBinTable';
 import AddProductModal from '../components/inventory/AddProductModal';
 import { UpdateProductModal } from '../components/inventory/UpdateProductModal';
@@ -29,10 +30,24 @@ export default function InventoryView() {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
   const [page, setPage] = useState(1);
-  const PAGE_SIZE = 10;
+  const [density, setDensity] = useState<'compact' | 'comfortable' | 'spacious'>(() => {
+    return (localStorage.getItem('inventory-density') as 'compact' | 'comfortable' | 'spacious') || 'comfortable';
+  });
 
   const debouncedSearch = useDebounce(search, 300);
   const debouncedCategory = useDebounce(category, 200);
+
+  const pageSize = {
+    compact: 25,
+    comfortable: 10,
+    spacious: 8
+  }[density];
+
+  const handleDensityChange = (mode: 'compact' | 'comfortable' | 'spacious') => {
+    setDensity(mode);
+    localStorage.setItem('inventory-density', mode);
+    setPage(1);
+  };
 
   const isLimitReached = h.skuLimit > 0 && h.pagination.totalCount >= h.skuLimit;
   const isNearLimit = h.skuLimit > 0 && h.pagination.totalCount >= (h.skuLimit * 0.8) && !isLimitReached;
@@ -44,14 +59,14 @@ export default function InventoryView() {
     if (h.currentView === 'active') {
       h.fetchItems({
         page,
-        limit: PAGE_SIZE,
+        limit: pageSize,
         search: debouncedSearch,
         category: debouncedCategory === 'all' ? '' : debouncedCategory
       });
     } else {
       h.fetchTrash();
     }
-  }, [debouncedSearch, debouncedCategory, page, h.currentView, h.fetchItems, h.fetchTrash]);
+  }, [debouncedSearch, debouncedCategory, page, pageSize, h.currentView, h.fetchItems, h.fetchTrash]);
 
   if (!isAuthLoaded) return null;
 
@@ -118,7 +133,7 @@ export default function InventoryView() {
       </div>
 
       {h.currentView === 'active' && (
-        <div className="flex flex-col md:flex-row gap-4 mb-6">
+        <div className="flex flex-col lg:flex-row gap-4 mb-6">
           <div className="relative flex-1">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 h-4 w-4" />
             <Input
@@ -129,7 +144,7 @@ export default function InventoryView() {
             />
           </div>
           <Select value={category} onValueChange={(val) => { setCategory(val); setPage(1); }}>
-            <SelectTrigger className="w-full md:w-[200px] h-14 rounded-2xl border-slate-200 font-bold">
+            <SelectTrigger className="w-full lg:w-[200px] h-14 rounded-2xl border-slate-200 font-bold">
               <SelectValue placeholder="Category" />
             </SelectTrigger>
             <SelectContent>
@@ -140,6 +155,7 @@ export default function InventoryView() {
               <SelectItem value="Other">Other</SelectItem>
             </SelectContent>
           </Select>
+          <DensitySelector density={density} onDensityChange={handleDensityChange} />
         </div>
       )}
 
@@ -155,8 +171,9 @@ export default function InventoryView() {
               items={h.items}
               totalCount={h.pagination.totalCount}
               currentPage={h.pagination.currentPage}
-              pageSize={h.pagination.pageSize}
-              onPageChange={(pageNumber) => h.fetchItems({ page: pageNumber, limit: PAGE_SIZE, search, category: category === 'all' ? '' : category })}
+              pageSize={pageSize}
+              density={density}
+              onPageChange={(pageNumber) => h.fetchItems({ page: pageNumber, limit: pageSize, search, category: category === 'all' ? '' : category })}
               onAdjust={(id, name, type) => {
                 const item = h.items.find(i => i.id === id);
                 h.setAdjustItem({ id, name, quantity: item?.quantity || 0, type });
