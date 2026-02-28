@@ -1,6 +1,6 @@
 import React from 'react';
 import { Package } from 'lucide-react';
-import { ForecastItem } from '../../types/chat';
+import { ForecastItem } from "@/types/chat";
 
 interface ForecastMessageProps {
   data: ForecastItem[];

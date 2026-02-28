@@ -1,6 +1,6 @@
 import React from 'react';
 import { TrendingUp, TrendingDown } from 'lucide-react';
-import { TransactionItem } from '../../types/chat';
+import { TransactionItem } from "@/types/chat";
 
 interface TransactionMessageProps {
   data: TransactionItem[];

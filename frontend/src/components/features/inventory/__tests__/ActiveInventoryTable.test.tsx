@@ -2,10 +2,11 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
-import ActiveInventoryTable from '../ActiveInventoryTable';
+import type { InventoryItem } from '@/hooks/useInventory';
+import ActiveInventoryTable from '@/components/features/inventory/ActiveInventoryTable';
 
 describe('ActiveInventoryTable', () => {
-  const mockInventory = [
+  const mockInventory: InventoryItem[] = [
     {
       id: '1',
       name: 'Test Product 1',

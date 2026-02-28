@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import ActiveInventoryTable from '../ActiveInventoryTable';
+import ActiveInventoryTable from '@/components/features/inventory/ActiveInventoryTable';
 
 describe('ActiveInventoryTable Debug', () => {
   it('should show what actually renders', () => {

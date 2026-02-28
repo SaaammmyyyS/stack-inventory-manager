@@ -1,5 +1,5 @@
 import React from 'react';
-import { DebugInfo } from '../../types/chat';
+import { DebugInfo } from "@/types/chat";
 
 interface ErrorFallbackMessageProps {
   content: string;

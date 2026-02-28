@@ -17,7 +17,7 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
-import type { StockTransaction } from '../../hooks/useInventory';
+import type { StockTransaction } from '@/hooks/useInventory';
 
 interface Props {
   isOpen: boolean;

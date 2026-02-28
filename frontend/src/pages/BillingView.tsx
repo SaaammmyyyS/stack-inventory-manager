@@ -1,6 +1,6 @@
 import { PricingTable, useOrganization } from "@clerk/clerk-react";
-import { useInventory } from "../hooks/useInventory";
-import { Button } from "../components/ui/button";
+import { useInventory } from "@/hooks/useInventory";
+import { Button } from "@/components/ui/button";
 import { RefreshCcw } from "lucide-react";
 
 export default function BillingView() {

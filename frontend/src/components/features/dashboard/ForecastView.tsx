@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Loader2, Sparkles, LayoutGrid } from "lucide-react";
 import { ForecastCard } from "./ForecastCard";
-import { StockAIInsight } from "../../types/inventory";
+import { StockAIInsight } from "@/types/inventory";
 import { useInventory } from "@/hooks/useInventory";
 import { toast } from "sonner";
 

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Plus, Minus, Trash2, History, ChevronLeft, ChevronRight, Edit } from 'lucide-react';
-import type { InventoryItem } from '../../hooks/useInventory';
+import type { InventoryItem } from '@/hooks/useInventory';
 import { Button } from "@/components/ui/button";
 import { ButtonLoader } from './loading';
 

@@ -1,5 +1,5 @@
 import { Download, FileText, Share2 } from "lucide-react";
-import { InventorySummary } from "../../../types/inventory";
+import { InventorySummary } from "@/types/inventory";
 
 interface AnalysisExportProps {
   analysis: InventorySummary;

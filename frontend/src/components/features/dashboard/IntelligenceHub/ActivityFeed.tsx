@@ -1,5 +1,5 @@
 import { ArrowUpRight, ArrowDownLeft, History, Loader2, AlertCircle } from "lucide-react";
-import { StockTransaction } from "../../../types/inventory";
+import { StockTransaction } from "@/types/inventory";
 import { ActivityFeedProps } from "./types";
 
 export function ActivityFeed({ activities, isLoading }: ActivityFeedProps) {

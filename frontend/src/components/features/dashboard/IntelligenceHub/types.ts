@@ -1,4 +1,4 @@
-import { InventorySummary, StockTransaction } from "../../../types/inventory";
+import { InventorySummary, StockTransaction } from "@/types/inventory";
 
 export interface IntelligenceHubProps {
   tenantId: string;

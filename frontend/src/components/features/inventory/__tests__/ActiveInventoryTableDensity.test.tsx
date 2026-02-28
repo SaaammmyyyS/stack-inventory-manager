@@ -1,8 +1,8 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
-import ActiveInventoryTable from '../ActiveInventoryTable';
-import type { InventoryItem } from '../../../hooks/useInventory';
+import ActiveInventoryTable from '@/components/features/inventory/ActiveInventoryTable';
+import type { InventoryItem } from '@/hooks/useInventory';
 
 const mockItems: InventoryItem[] = [
   {

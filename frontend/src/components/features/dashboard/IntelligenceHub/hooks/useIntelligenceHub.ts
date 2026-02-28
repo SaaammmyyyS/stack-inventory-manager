@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { InventorySummary, StockTransaction } from "../../../../types/inventory";
+import { InventorySummary, StockTransaction } from "@/types/inventory";
 import { useInventory } from "@/hooks/useInventory";
 import { toast } from "sonner";
 

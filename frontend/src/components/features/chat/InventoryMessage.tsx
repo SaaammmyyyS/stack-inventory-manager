@@ -1,6 +1,6 @@
 import React from 'react';
 import { Package } from 'lucide-react';
-import { InventoryItem } from '../../types/chat';
+import { InventoryItem } from "@/types/chat";
 
 interface InventoryMessageProps {
   data: InventoryItem[];

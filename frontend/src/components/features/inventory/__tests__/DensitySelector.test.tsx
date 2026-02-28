@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
-import DensitySelector from '../DensitySelector';
+import DensitySelector from '@/components/features/inventory/DensitySelector';
 
 describe('DensitySelector', () => {
   const mockOnDensityChange = vi.fn();
