@@ -1,4 +1,4 @@
-import { useState, useCallback, useTransition, useMemo } from 'react';
+import { useState, useCallback, useTransition, useMemo, useRef } from 'react';
 import { useAuth, useOrganization, useUser } from "@clerk/clerk-react";
 import { toast } from "sonner";
 import axios from "axios";
@@ -54,8 +54,13 @@ export function useInventory() {
   const [trashedItems, setTrashedItems] = useState<InventoryItem[]>([]);
   const [recentActivity, setRecentActivity] = useState<StockTransaction[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isPaginating, setIsPaginating] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const paginationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const tenantId = useMemo(() => organization?.id || user?.id || "personal", [organization?.id, user?.id]);
 
@@ -111,28 +116,69 @@ export function useInventory() {
     return instance;
   }, [getToken, tenantId, currentPlan]);
 
-  const fetchItems = useCallback(async (options: FetchOptions = {}) => {
+  const fetchItems = useCallback(async (options: FetchOptions = {}, context: 'initial' | 'pagination' | 'search' = 'initial') => {
     if (!isOrgLoaded) return;
-    setIsLoading(true);
-    setPagination(prev => ({ ...prev, isLoading: true }));
+
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    if (paginationTimeoutRef.current) {
+      clearTimeout(paginationTimeoutRef.current);
+    }
+
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+
+    if (context === 'pagination') {
+      await new Promise(resolve => {
+        paginationTimeoutRef.current = setTimeout(resolve, 200);
+      });
+    }
+
+    if (context === 'pagination') setIsPaginating(true);
+    else if (context === 'search') setIsSearching(true);
+    else {
+      setIsLoading(true);
+      setPagination(prev => ({ ...prev, isLoading: true }));
+    }
+
     try {
-      const { data } = await api.get<PaginatedResponse<InventoryItem>>('/api/inventory', { params: options });
-      setItems(data.items || []);
-      setPagination(prev => ({
-        ...prev,
-        currentPage: data.currentPage || 1,
-        pageSize: data.pageSize || 10,
-        totalCount: data.total || 0,
-        totalPages: data.totalPages || 0,
-        hasNext: data.hasNext || false,
-        hasPrevious: data.hasPrevious || false,
-        isLoading: false
-      }));
-    } catch (err) {
-      setError("Could not load inventory");
-      setPagination(prev => ({ ...prev, isLoading: false }));
+      const { data } = await api.get<PaginatedResponse<InventoryItem>>('/api/inventory', {
+        params: options,
+        signal: abortController.signal
+      });
+
+      if (!abortController.signal.aborted) {
+        setItems(data.items || []);
+        setPagination(prev => ({
+          ...prev,
+          currentPage: data.currentPage || 1,
+          pageSize: data.pageSize || 10,
+          totalCount: data.total || 0,
+          totalPages: data.totalPages || 0,
+          hasNext: data.hasNext || false,
+          hasPrevious: data.hasPrevious || false,
+          isLoading: false
+        }));
+      }
+    } catch (err: any) {
+      if (!abortController.signal.aborted) {
+        setError("Could not load inventory");
+        setPagination(prev => ({ ...prev, isLoading: false }));
+      }
     } finally {
-      setIsLoading(false);
+      if (!abortController.signal.aborted) {
+        if (context === 'pagination') setIsPaginating(false);
+        else if (context === 'search') setIsSearching(false);
+        else setIsLoading(false);
+      }
+
+      abortControllerRef.current = null;
+      if (paginationTimeoutRef.current) {
+        clearTimeout(paginationTimeoutRef.current);
+        paginationTimeoutRef.current = null;
+      }
     }
   }, [api, isOrgLoaded]);
 
@@ -267,7 +313,7 @@ export function useInventory() {
 
   return {
     items, pagination, skuLimit, aiUsage, aiLimit, trashedItems, recentActivity,
-    isLoading, error, setError, isPending, isAdmin, currentPlan,
+    isLoading, isPaginating, isSearching, error, setError, isPending, isAdmin, currentPlan,
     addItem, updateItem, deleteItem, restoreItem,
     permanentlyDelete, recordMovement, fetchTrash,
     fetchItems, fetchHistory, fetchRecentActivity, refreshPlan,

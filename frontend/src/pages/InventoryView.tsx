@@ -13,6 +13,7 @@ import {
 
 import ActiveInventoryTable from '../components/inventory/ActiveInventoryTable';
 import DensitySelector from '../components/inventory/DensitySelector';
+import { PaginationLoader, ButtonLoader, TableSkeleton } from '../components/inventory/loading';
 import TrashBinTable from '../components/inventory/TrashBinTable';
 import AddProductModal from '../components/inventory/AddProductModal';
 import { UpdateProductModal } from '../components/inventory/UpdateProductModal';
@@ -55,14 +56,19 @@ export default function InventoryView() {
   const isEffectivelyLoading = h.isLoading &&
     (h.currentView === 'active' ? h.items.length === 0 : h.trashedItems.length === 0);
 
+  const showPaginationLoader = h.isPaginating && h.items.length > 0;
+  const showSearchLoader = h.isSearching && h.items.length > 0;
+
   useEffect(() => {
     if (h.currentView === 'active') {
+      const context = page === 1 && !debouncedSearch && debouncedCategory === 'all' ? 'initial' :
+                     debouncedSearch || debouncedCategory !== 'all' ? 'search' : 'pagination';
       h.fetchItems({
         page,
         limit: pageSize,
         search: debouncedSearch,
         category: debouncedCategory === 'all' ? '' : debouncedCategory
-      });
+      }, context);
     } else {
       h.fetchTrash();
     }
@@ -167,22 +173,27 @@ export default function InventoryView() {
           </div>
         ) : (
           h.currentView === 'active' ? (
-            <ActiveInventoryTable
-              items={h.items}
-              totalCount={h.pagination.totalCount}
-              currentPage={h.pagination.currentPage}
-              pageSize={pageSize}
-              density={density}
-              onPageChange={(pageNumber) => h.fetchItems({ page: pageNumber, limit: pageSize, search, category: category === 'all' ? '' : category })}
-              onAdjust={(id, name, type) => {
-                const item = h.items.find(i => i.id === id);
-                h.setAdjustItem({ id, name, quantity: item?.quantity || 0, type });
-              }}
-              onEdit={(item) => h.setItemToUpdate(item)}
-              onHistory={h.handleOpenHistory}
-              onDelete={(id, name) => h.setItemToDelete({ id, name })}
-              isAdmin={h.isAdmin}
-            />
+            <>
+              {showPaginationLoader && <PaginationLoader />}
+              {showSearchLoader && <PaginationLoader />}
+              <ActiveInventoryTable
+                items={h.items}
+                totalCount={h.pagination.totalCount}
+                currentPage={h.pagination.currentPage}
+                pageSize={pageSize}
+                density={density}
+                isPaginating={h.isPaginating}
+                onPageChange={(pageNumber) => h.fetchItems({ page: pageNumber, limit: pageSize, search, category: category === 'all' ? '' : category }, 'pagination')}
+                onAdjust={(id, name, type) => {
+                  const item = h.items.find(i => i.id === id);
+                  h.setAdjustItem({ id, name, quantity: item?.quantity || 0, type });
+                }}
+                onEdit={(item) => h.setItemToUpdate(item)}
+                onHistory={h.handleOpenHistory}
+                onDelete={(id, name) => h.setItemToDelete({ id, name })}
+                isAdmin={h.isAdmin}
+              />
+            </>
           ) : (
             <TrashBinTable
               items={h.trashedItems}
@@ -198,7 +209,7 @@ export default function InventoryView() {
       <AddProductModal isOpen={h.isAddModalOpen} isPending={h.isPending} error={h.error} onClose={() => h.setIsAddModalOpen(false)} onSubmit={h.handleAddProduct} />
       <UpdateProductModal isOpen={!!h.itemToUpdate} isPending={h.isPending} item={h.itemToUpdate} error={h.error} onClose={() => h.setItemToUpdate(null)} onSubmit={h.handleUpdateProduct} />
       <StockAdjustmentModal item={h.adjustItem} error={h.error} onClose={() => h.setAdjustItem(null)} onSubmit={h.handleStockAdjustment} />
-      <ActivityLogDrawer isOpen={!!h.historyItem} itemName={h.historyItem?.name || ''} isLoading={h.isHistoryLoading} data={h.historyData} onClose={() => { h.setHistoryItem(null); h.setHistoryData([]); }} />
+      <ActivityLogDrawer isOpen={!!h.historyItem} itemName={h.historyItem?.name || ''} isLoading={h.isHistoryLoading} data={h.historyData} onClose={() => { h.setHistoryItem(null); }} />
       <DeleteConfirmModal itemName={h.itemToDelete?.name || null} onClose={() => h.setItemToDelete(null)} onConfirm={async () => { if (h.itemToDelete) { await h.deleteItem(h.itemToDelete.id); h.setItemToDelete(null); } }} />
     </div>
   );

@@ -2,6 +2,7 @@ import React from 'react';
 import { Plus, Minus, Trash2, History, ChevronLeft, ChevronRight, Edit } from 'lucide-react';
 import type { InventoryItem } from '../../hooks/useInventory';
 import { Button } from "@/components/ui/button";
+import { ButtonLoader } from './loading';
 
 interface ActiveInventoryTableProps {
   items: InventoryItem[];
@@ -10,6 +11,7 @@ interface ActiveInventoryTableProps {
   pageSize: number;
   isAdmin: boolean;
   density?: 'compact' | 'comfortable' | 'spacious';
+  isPaginating?: boolean;
   onPageChange: (page: number) => void;
   onAdjust: (id: string, name: string, type: 'STOCK_IN' | 'STOCK_OUT') => void;
   onHistory: (id: string, name: string) => void;
@@ -24,6 +26,7 @@ const ActiveInventoryTable: React.FC<ActiveInventoryTableProps> = ({
   pageSize,
   isAdmin,
   density = 'comfortable',
+  isPaginating = false,
   onPageChange,
   onAdjust,
   onHistory,
@@ -174,21 +177,21 @@ const ActiveInventoryTable: React.FC<ActiveInventoryTableProps> = ({
               variant="outline"
               size="sm"
               className="rounded-xl border-slate-100 h-10 px-4 font-black text-[10px] uppercase tracking-widest"
-              disabled={currentPage === 1}
+              disabled={currentPage === 1 || isPaginating}
               onClick={() => onPageChange(currentPage - 1)}
             >
-              <ChevronLeft className="h-4 w-4 mr-1" />
+              {isPaginating && currentPage > 1 ? <ButtonLoader size={14} /> : <ChevronLeft className="h-4 w-4 mr-1" />}
               Prev
             </Button>
             <Button
               variant="outline"
               size="sm"
               className="rounded-xl border-slate-100 h-10 px-4 font-black text-[10px] uppercase tracking-widest"
-              disabled={currentPage >= totalPages || totalPages === 0}
+              disabled={currentPage >= totalPages || totalPages === 0 || isPaginating}
               onClick={() => onPageChange(currentPage + 1)}
             >
               Next
-              <ChevronRight className="h-4 w-4 ml-1" />
+              {isPaginating && currentPage < totalPages ? <ButtonLoader size={14} /> : <ChevronRight className="h-4 w-4 ml-1" />}
             </Button>
           </div>
         </div>
