@@ -76,15 +76,15 @@ export function StockVelocityChart({ transactions, onDateRangeChange }: Props) {
   }, [dateRange, onDateRangeChange, isInitialized, lastNotifiedRange]);
 
   return (
-    <div className="bg-white border border-slate-200 rounded-3xl p-8 shadow-sm h-full flex flex-col min-h-[500px]">
-      <div className="flex justify-between items-center mb-10 shrink-0">
-        <div className="flex items-center gap-4">
-          <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl">
+    <div className="bg-white border border-slate-200 rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-8 shadow-sm h-full flex flex-col min-h-[400px] sm:min-h-[500px]">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0 mb-6 sm:mb-10 shrink-0">
+        <div className="flex items-center gap-3 sm:gap-4">
+          <div className="p-2 sm:p-3 bg-blue-50 text-blue-600 rounded-xl sm:rounded-2xl">
             <Activity size={20} strokeWidth={2.5} />
           </div>
           <div>
-            <h4 className="text-xl font-black text-slate-900 leading-none">Stock Velocity</h4>
-            <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-1.5">Net Inventory Flow</p>
+            <h4 className="text-lg sm:text-xl font-black text-slate-900 leading-none">Stock Velocity</h4>
+            <p className="text-[9px] sm:text-[10px] text-slate-400 font-black uppercase tracking-widest mt-1 sm:mt-1.5">Net Inventory Flow</p>
           </div>
         </div>
 
@@ -95,7 +95,7 @@ export function StockVelocityChart({ transactions, onDateRangeChange }: Props) {
         />
       </div>
 
-      <div ref={containerRef} className="flex-1 w-full min-h-[400px] relative">
+      <div ref={containerRef} className="flex-1 w-full min-h-[300px] sm:min-h-[400px] relative mobile-chart-container stock-velocity-mobile">
         {isMeasured && chartData.length > 0 && dimensions.width > 0 && dimensions.height > 0 ? (
           <ResponsiveContainer width={dimensions.width} height={dimensions.height}>
             <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
@@ -156,7 +156,7 @@ export function StockVelocityChart({ transactions, onDateRangeChange }: Props) {
 
       {filteredTransactions.length > 0 && (
         <div className="mt-6 pt-6 border-t border-slate-100">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
             <div className="text-center">
               <div className="text-2xl font-black text-slate-900">
                 {filteredTransactions.length}

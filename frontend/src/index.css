@@ -157,7 +157,6 @@
     background: transparent;
   }
 
-  /* Responsive height utilities */
   .responsive-hub-height {
     height: 500px;
   }
@@ -198,6 +197,33 @@
     .mobile-scroll-x::-webkit-scrollbar-thumb {
       background-color: rgba(255, 255, 255, 0.2);
       border-radius: 2px;
+    }
+
+    .stock-velocity-mobile {
+      font-size: 0.875rem;
+    }
+
+    .stock-velocity-mobile .recharts-wrapper {
+      touch-action: pan-y pinch-zoom;
+    }
+
+    .mobile-tooltip {
+      font-size: 0.75rem;
+      max-width: 280px;
+    }
+
+    .mobile-chart-container {
+      min-height: 300px !important;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .mobile-chart-container {
+      min-height: 250px !important;
+    }
+
+    .mobile-tooltip {
+      max-width: 250px;
     }
   }
 }

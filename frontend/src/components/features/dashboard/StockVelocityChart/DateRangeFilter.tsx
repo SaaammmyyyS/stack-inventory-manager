@@ -163,7 +163,7 @@ export function DateRangeFilter({ value, onChange, className = '' }: DateRangeFi
       <button
         ref={buttonRef}
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+        className="flex items-center gap-2 px-4 py-3 min-h-[44px] bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
         aria-label="Select date range"
         aria-expanded={isOpen}
         aria-haspopup="menu"
@@ -171,7 +171,7 @@ export function DateRangeFilter({ value, onChange, className = '' }: DateRangeFi
       >
         <Calendar className="w-4 h-4" />
         {currentPreset === 'custom' ? (
-          <span className="truncate max-w-[150px]">
+          <span className="truncate max-w-[120px] sm:max-w-[150px]">
             {formatDateDisplay(value.startDate)} - {formatDateDisplay(value.endDate)}
           </span>
         ) : (
@@ -207,7 +207,7 @@ export function DateRangeFilter({ value, onChange, className = '' }: DateRangeFi
                   <button
                     key={preset.key}
                     onClick={() => handlePresetClick(preset.days, preset.preset)}
-                    className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    className={`w-full text-left px-3 py-3 min-h-[44px] rounded-lg text-sm font-medium transition-colors ${
                       currentPreset === preset.key
                         ? 'bg-blue-50 text-blue-700 border border-blue-200'
                         : 'text-slate-700 hover:bg-slate-50'
@@ -234,7 +234,7 @@ export function DateRangeFilter({ value, onChange, className = '' }: DateRangeFi
                     type="date"
                     value={customStart}
                     onChange={(e) => handleCustomDateChange('start', e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-3 min-h-[44px] border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     max={formatDateForInput(new Date())}
                   />
                 </div>
@@ -247,7 +247,7 @@ export function DateRangeFilter({ value, onChange, className = '' }: DateRangeFi
                     type="date"
                     value={customEnd}
                     onChange={(e) => handleCustomDateChange('end', e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-3 min-h-[44px] border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     max={formatDateForInput(new Date())}
                   />
                 </div>
@@ -255,13 +255,13 @@ export function DateRangeFilter({ value, onChange, className = '' }: DateRangeFi
                   <button
                     onClick={applyCustomRange}
                     disabled={!customStart || !customEnd}
-                    className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium disabled:bg-slate-300 disabled:cursor-not-allowed hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                    className="flex-1 px-3 py-3 min-h-[44px] bg-blue-600 text-white rounded-lg text-sm font-medium disabled:bg-slate-300 disabled:cursor-not-allowed hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                   >
                     Apply Range
                   </button>
                   <button
                     onClick={clearFilter}
-                    className="px-3 py-2 bg-slate-100 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-200 transition-colors focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2"
+                    className="px-3 py-3 min-h-[44px] bg-slate-100 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-200 transition-colors focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2"
                   >
                     <X className="w-4 h-4" />
                   </button>

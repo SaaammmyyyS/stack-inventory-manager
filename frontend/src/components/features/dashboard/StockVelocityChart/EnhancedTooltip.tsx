@@ -50,27 +50,27 @@ export function EnhancedTooltip({ active, payload, label }: EnhancedTooltipProps
 
   return (
     <div
-      className="bg-white rounded-xl border border-slate-200 shadow-lg p-4 min-w-[280px] max-w-[320px]"
+      className="bg-white rounded-xl border border-slate-200 shadow-lg p-3 sm:p-4 min-w-[250px] sm:min-w-[280px] max-w-[300px] sm:max-w-[320px]"
       role="tooltip"
       aria-label={`Transaction details for ${label}`}
     >
-      <div className="mb-3 pb-3 border-b border-slate-100">
+      <div className="mb-2 sm:mb-3 pb-2 sm:pb-3 border-b border-slate-100">
         <div className="flex items-center justify-between mb-1">
           <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
             {label}
           </span>
-          <span className="text-lg font-black text-slate-900">
+          <span className="text-base sm:text-lg font-black text-slate-900">
             {data.quantity.toLocaleString()}
           </span>
         </div>
-        <div className="text-[10px] text-slate-400">
+        <div className="text-[9px] sm:text-[10px] text-slate-400">
           Current Stock Level
         </div>
       </div>
 
       {data.transaction && (
-        <div className="space-y-3">
-          <div className={`flex items-center justify-between p-3 rounded-lg border ${getTransactionColor(data.transaction.type)}`}>
+        <div className="space-y-2 sm:space-y-3">
+          <div className={`flex items-center justify-between p-2 sm:p-3 rounded-lg border ${getTransactionColor(data.transaction.type)}`}>
             <div className="flex items-center gap-2">
               {getTransactionIcon(data.transaction.type)}
               <span className="text-xs font-black uppercase tracking-wider">
@@ -87,11 +87,11 @@ export function EnhancedTooltip({ active, payload, label }: EnhancedTooltipProps
             </div>
           </div>
 
-          <div className="space-y-2 text-xs">
+          <div className="space-y-1 sm:space-y-2 text-xs">
             {data.transaction.itemName && (
               <div className="flex justify-between">
                 <span className="text-slate-500">Item:</span>
-                <span className="font-medium text-slate-900">
+                <span className="font-medium text-slate-900 max-w-[120px] sm:max-w-[180px] truncate">
                   {data.transaction.itemName}
                 </span>
               </div>
@@ -109,7 +109,7 @@ export function EnhancedTooltip({ active, payload, label }: EnhancedTooltipProps
             {data.transaction.reason && (
               <div className="flex justify-between">
                 <span className="text-slate-500">Reason:</span>
-                <span className="font-medium text-slate-900 max-w-[180px] truncate">
+                <span className="font-medium text-slate-900 max-w-[120px] sm:max-w-[180px] truncate">
                   {data.transaction.reason}
                 </span>
               </div>
@@ -137,12 +137,12 @@ export function EnhancedTooltip({ active, payload, label }: EnhancedTooltipProps
             </div>
           </div>
 
-          <div className="pt-2 border-t border-slate-100">
+          <div className="pt-1 sm:pt-2 border-t border-slate-100">
             <div className="flex justify-between">
-              <span className="text-[9px] text-slate-400 uppercase tracking-wider">
+              <span className="text-[8px] sm:text-[9px] text-slate-400 uppercase tracking-wider">
                 Transaction ID
               </span>
-              <span className="text-[9px] font-mono text-slate-600">
+              <span className="text-[8px] sm:text-[9px] font-mono text-slate-600">
                 {data.transaction.id.slice(-8)}
               </span>
             </div>
