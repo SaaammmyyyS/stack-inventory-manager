@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import { Calendar, ChevronDown, X } from 'lucide-react';
 import { DateRange, DateRangeFilterProps } from './types';
+import { useDropdownPosition } from '@/hooks/useDropdownPosition';
 
 const PRESET_RANGES = [
   { key: '7days', label: 'Last 7 days', days: 7, preset: '7days' as const },
@@ -13,6 +14,7 @@ export function DateRangeFilter({ value, onChange, className = '' }: DateRangeFi
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');
   const timeoutRef = useRef<NodeJS.Timeout>();
+  const { buttonRef, containerRef, position, calculatePosition } = useDropdownPosition();
 
   const debouncedOnChange = useCallback((range: DateRange) => {
     if (timeoutRef.current) {
@@ -31,6 +33,54 @@ export function DateRangeFilter({ value, onChange, className = '' }: DateRangeFi
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (isOpen) {
+      calculatePosition();
+    }
+  }, [isOpen, calculatePosition]);
+
+  useEffect(() => {
+    if (isOpen) {
+      const handleResize = () => calculatePosition();
+      window.addEventListener('resize', handleResize);
+      window.addEventListener('scroll', handleResize);
+
+      return () => {
+        window.removeEventListener('resize', handleResize);
+        window.removeEventListener('scroll', handleResize);
+      };
+    }
+  }, [isOpen, calculatePosition]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (buttonRef.current &&
+          !buttonRef.current.contains(event.target as Node) &&
+          !(event.target as Element).closest('.date-range-dropdown')) {
+        setIsOpen(false);
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsOpen(false);
+        buttonRef.current?.focus();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('keydown', handleKeyDown);
+      return () => document.removeEventListener('keydown', handleKeyDown);
+    }
+  }, [isOpen]);
 
   const handlePresetClick = useCallback((days: number, preset: DateRange['preset']) => {
     const endDate = new Date();
@@ -109,12 +159,15 @@ export function DateRangeFilter({ value, onChange, className = '' }: DateRangeFi
   };
 
   return (
-    <div className={`relative ${className}`}>
+    <div ref={containerRef} className={`relative ${className}`}>
       <button
+        ref={buttonRef}
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
         aria-label="Select date range"
         aria-expanded={isOpen}
+        aria-haspopup="menu"
+        id="date-range-button"
       >
         <Calendar className="w-4 h-4" />
         {currentPreset === 'custom' ? (
@@ -130,7 +183,20 @@ export function DateRangeFilter({ value, onChange, className = '' }: DateRangeFi
       </button>
 
       {isOpen && (
-        <div className="absolute top-full left-0 mt-2 w-80 bg-white border border-slate-200 rounded-xl shadow-lg z-50 focus:outline-none">
+        <div
+          className="absolute bg-white border border-slate-200 rounded-xl shadow-lg z-50 focus:outline-none date-range-dropdown overflow-x-auto"
+          style={position ? {
+            top: `${position.top}px`,
+            left: `${position.left}px`,
+            width: `${position.width}px`
+          } : {
+            top: '100%',
+            left: 0,
+            width: '320px'
+          }}
+          role="menu"
+          aria-labelledby="date-range-button"
+        >
           <div className="p-4">
             <div className="mb-4">
               <h4 className="text-xs font-black text-slate-500 uppercase tracking-wider mb-3">
@@ -146,6 +212,7 @@ export function DateRangeFilter({ value, onChange, className = '' }: DateRangeFi
                         ? 'bg-blue-50 text-blue-700 border border-blue-200'
                         : 'text-slate-700 hover:bg-slate-50'
                     }`}
+                    role="menuitem"
                   >
                     {preset.label}
                   </button>
