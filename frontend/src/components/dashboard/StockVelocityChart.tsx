@@ -1,1 +1,0 @@
-export { StockVelocityChart } from './StockVelocityChart/index';

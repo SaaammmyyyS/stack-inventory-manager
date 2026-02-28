@@ -5,7 +5,7 @@ import {
   Package, Activity, AlertCircle, Loader2, DollarSign,
   FileDown, Lock, LayoutDashboard, Sparkles
 } from "lucide-react";
-import { IntelligenceHub } from "@/components/dashboard/IntelligenceHub";
+import { IntelligenceHub } from "@/components/dashboard/IntelligenceHub/index";
 import { ForecastView } from "@/components/dashboard/ForecastView";
 import { toast } from "sonner";
 
