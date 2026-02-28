@@ -1,6 +1,6 @@
 import React from 'react';
 import { Bot, User, Loader2 } from 'lucide-react';
-import { Message } from '../../types/chat';
+import { Message } from '../../../types/chat';
 import { ConversationalMessage } from './ConversationalMessage';
 import { TransactionMessage } from './TransactionMessage';
 import { ForecastMessage } from './ForecastMessage';
@@ -14,7 +14,7 @@ import {
   isConversationalMessage,
   shouldShowDebugInfo,
   shouldShowErrorFallback
-} from '../../utils/chatHelpers';
+} from '../../../utils/chatHelpers';
 
 interface MessageRendererProps {
   message: Message;

@@ -1,8 +1,8 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { errorService } from '../services/errorService';
-import { AppError } from '../types/errors';
+import { errorService } from '../../services/errorService';
+import { AppError } from '../../types/errors';
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
-import { Button } from './ui/button';
+import { Button } from '../ui/button';
 
 interface Props {
   children: ReactNode;

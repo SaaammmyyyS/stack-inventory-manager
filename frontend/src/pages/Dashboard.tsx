@@ -5,8 +5,8 @@ import {
   Package, Activity, AlertCircle, Loader2, DollarSign,
   FileDown, Lock, LayoutDashboard, Sparkles
 } from "lucide-react";
-import { IntelligenceHub } from "@/components/dashboard/IntelligenceHub/index";
-import { ForecastView } from "@/components/dashboard/ForecastView";
+import { IntelligenceHub } from "@/components/features/dashboard/IntelligenceHub/index";
+import { ForecastView } from "@/components/features/dashboard/ForecastView";
 import { toast } from "sonner";
 
 export default function Dashboard() {

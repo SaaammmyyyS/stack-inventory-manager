@@ -11,17 +11,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-import ActiveInventoryTable from '../components/inventory/ActiveInventoryTable';
-import DensitySelector from '../components/inventory/DensitySelector';
-import { PaginationLoader, ButtonLoader, TableSkeleton } from '../components/inventory/loading';
-import TrashBinTable from '../components/inventory/TrashBinTable';
-import AddProductModal from '../components/inventory/AddProductModal';
-import { UpdateProductModal } from '../components/inventory/UpdateProductModal';
-import StockAdjustmentModal from '../components/inventory/StockAdjustmentModal';
-import ActivityLogDrawer from '../components/inventory/ActivityLogDrawer';
-import DeleteConfirmModal from '../components/inventory/DeleteConfirmModal';
-import { UsageWidget } from '../components/UsageWidget';
-import { FilterPanel } from '../components/inventory/FilterPanel';
+import ActiveInventoryTable from '../components/features/inventory/ActiveInventoryTable';
+import DensitySelector from '../components/features/inventory/DensitySelector';
+import { PaginationLoader, ButtonLoader, TableSkeleton } from '../components/features/inventory/loading';
+import TrashBinTable from '../components/features/inventory/TrashBinTable';
+import AddProductModal from '../components/features/inventory/AddProductModal';
+import { UpdateProductModal } from '../components/features/inventory/UpdateProductModal';
+import StockAdjustmentModal from '../components/features/inventory/StockAdjustmentModal';
+import ActivityLogDrawer from '../components/features/inventory/ActivityLogDrawer';
+import DeleteConfirmModal from '../components/features/inventory/DeleteConfirmModal';
+import { UsageWidget } from '../components/shared/UsageWidget';
+import { FilterPanel } from '../components/features/inventory/FilterPanel';
 import { useInventoryHandlers } from '@/hooks/useInventoryHandlers';
 import { useFilters, FilterState } from '@/hooks/useFilters';
 

@@ -1,12 +1,12 @@
 import { SignedIn, SignedOut, SignInButton, useUser, useOrganization } from "@clerk/clerk-react";
 import { Routes, Route, Navigate } from "react-router-dom";
-import DashboardLayout from './components/DashboardLayout';
+import DashboardLayout from './components/layout/DashboardLayout';
 import InventoryView from "./pages/InventoryView";
 import Dashboard from "./pages/Dashboard";
 import BillingView from "./pages/BillingView";
 import { Package, Loader2 } from 'lucide-react';
 import { Toaster } from 'sonner';
-import { ErrorBoundary } from './components/ErrorBoundary';
+import { ErrorBoundary } from './components/layout/ErrorBoundary';
 
 export default function App() {
   const { isLoaded: isUserLoaded } = useUser();

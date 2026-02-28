@@ -4,13 +4,13 @@ import {
   SheetHeader,
   SheetTitle,
   SheetDescription,
-} from "./ui/sheet";
-import { Button } from "./ui/button";
-import { Input } from "./ui/input";
+} from "../../ui/sheet";
+import { Button } from "../../ui/button";
+import { Input } from "../../ui/input";
 import { MessageSquare, Send, Loader2, Bot } from "lucide-react";
-import { useChatState } from "../hooks/useChatState";
-import { useChatApi } from "../hooks/useChatApi";
-import { MessageRenderer } from "./chat/MessageRenderer";
+import { useChatState } from "../../../hooks/useChatState";
+import { useChatApi } from "../../../hooks/useChatApi";
+import { MessageRenderer } from "./MessageRenderer";
 
 export function InventoryChatBot() {
   const {
