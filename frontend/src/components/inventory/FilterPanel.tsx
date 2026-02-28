@@ -9,7 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Filter, X, ChevronDown, ChevronUp } from "lucide-react";
+import { Filter, X, ChevronDown, ChevronUp, Search } from "lucide-react";
 import { StockStatusFilter } from "./StockStatusFilter";
 import { PriceRangeFilter } from "./PriceRangeFilter";
 import { useFilters, FilterState } from "@/hooks/useFilters";
@@ -19,9 +19,22 @@ interface FilterPanelProps {
   onFiltersChange: (filters: FilterState) => void;
   categories: string[];
   isLoading?: boolean;
+  pendingSearch?: string;
+  onUpdatePendingSearch?: (value: string) => void;
+  onTriggerSearch?: () => void;
+  isSearchPending?: boolean;
 }
 
-export function FilterPanel({ filters, onFiltersChange, categories, isLoading }: FilterPanelProps) {
+export function FilterPanel({
+  filters,
+  onFiltersChange,
+  categories,
+  isLoading,
+  pendingSearch = '',
+  onUpdatePendingSearch,
+  onTriggerSearch,
+  isSearchPending = false
+}: FilterPanelProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   const handleFilterChange = <K extends keyof FilterState>(
@@ -90,12 +103,47 @@ export function FilterPanel({ filters, onFiltersChange, categories, isLoading }:
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
           <label className="text-sm font-medium">Search</label>
-          <Input
-            placeholder="Search by name or SKU..."
-            value={filters.search}
-            onChange={(e) => handleFilterChange('search', e.target.value)}
-            disabled={isLoading}
-          />
+          <div className="flex gap-2">
+            <Input
+              placeholder="Search by name or SKU..."
+              value={pendingSearch}
+              onChange={(e) => onUpdatePendingSearch?.(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  onTriggerSearch?.();
+                } else if (e.key === 'Escape') {
+                  onUpdatePendingSearch?.(filters.search);
+                }
+              }}
+              disabled={isLoading}
+              className={isSearchPending ? 'border-orange-300 focus:border-orange-400' : ''}
+              aria-label="Search inventory (press Enter to search, Escape to clear)"
+            />
+            <Button
+              onClick={onTriggerSearch}
+              disabled={!isSearchPending || isLoading}
+              size="sm"
+              variant={isSearchPending ? "default" : "outline"}
+              aria-label="Apply search"
+            >
+              <Search className="h-4 w-4" />
+            </Button>
+            {filters.search && (
+              <Button
+                onClick={() => onFiltersChange({ ...filters, search: '' })}
+                size="sm"
+                variant="ghost"
+                aria-label="Clear search"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+          {isSearchPending && (
+            <div className="text-xs text-orange-500 font-medium">
+              Press Enter or click search to apply
+            </div>
+          )}
         </div>
 
         <div className="space-y-2">

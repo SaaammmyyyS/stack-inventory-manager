@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 
 export interface FilterState {
   search: string;
@@ -27,6 +27,29 @@ export function useFilters(initialFilters: Partial<FilterState> = {}) {
     ...DEFAULT_FILTERS,
     ...initialFilters
   });
+
+  const [pendingSearch, setPendingSearch] = useState(filters.search);
+  const [isSearchPending, setIsSearchPending] = useState(false);
+
+  useEffect(() => {
+    setPendingSearch(filters.search);
+    setIsSearchPending(false);
+  }, [filters.search]);
+
+  const triggerSearch = useCallback(() => {
+    setFilters(prev => ({ ...prev, search: pendingSearch }));
+    setIsSearchPending(false);
+  }, [pendingSearch]);
+
+  const updatePendingSearch = useCallback((value: string) => {
+    setPendingSearch(value);
+    setIsSearchPending(value.trim() !== '' && value !== filters.search);
+  }, [filters.search]);
+
+  const clearPendingSearch = useCallback(() => {
+    setPendingSearch(filters.search);
+    setIsSearchPending(false);
+  }, [filters.search]);
 
   const updateFilter = useCallback(<K extends keyof FilterState>(
     key: K,
@@ -69,7 +92,7 @@ export function useFilters(initialFilters: Partial<FilterState> = {}) {
     }
 
     return params;
-  }, [filters]);
+  }, [filters.search, filters.category, filters.stockStatus, filters.priceRange]);
 
   const getFilterCount = useMemo(() => {
     let count = 0;
@@ -93,6 +116,11 @@ export function useFilters(initialFilters: Partial<FilterState> = {}) {
 
   return {
     filters,
+    pendingSearch,
+    isSearchPending,
+    triggerSearch,
+    updatePendingSearch,
+    clearPendingSearch,
     updateFilter,
     resetFilters,
     hasActiveFilters,

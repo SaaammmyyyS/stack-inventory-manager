@@ -23,7 +23,6 @@ import DeleteConfirmModal from '../components/inventory/DeleteConfirmModal';
 import { UsageWidget } from '../components/UsageWidget';
 import { FilterPanel } from '../components/inventory/FilterPanel';
 import { useInventoryHandlers } from '@/hooks/useInventoryHandlers';
-import { useDebounce } from '@/hooks/useDebounce';
 import { useFilters, FilterState } from '@/hooks/useFilters';
 
 export default function InventoryView() {
@@ -86,9 +85,14 @@ export default function InventoryView() {
     filters.updateFilter('stockStatus', newFilters.stockStatus);
     filters.updateFilter('priceRange', newFilters.priceRange);
 
-    updateURL(newFilters);
-    setPage(1);
+    if (newFilters.search === filters.filters.search) {
+      setPage(1);
+    }
   };
+
+  useEffect(() => {
+    updateURL(filters.filters);
+  }, [filters.filters.search, filters.filters.category, filters.filters.stockStatus, filters.filters.priceRange]);
 
   const categories = useMemo(() => ['Electronics', 'Furniture', 'Apparel', 'Other'], []);
 
@@ -104,6 +108,7 @@ export default function InventoryView() {
   useEffect(() => {
     if (h.currentView === 'active') {
       const filterParams = filters.getApiParams();
+
       const context = page === 1 && !filters.hasActiveFilters ? 'initial' :
                      filters.hasActiveFilters ? 'search' : 'pagination';
 
@@ -115,7 +120,7 @@ export default function InventoryView() {
     } else {
       h.fetchTrash();
     }
-  }, [filters.filters, page, pageSize, h.currentView, h.fetchItems, h.fetchTrash, filters.hasActiveFilters, filters.getApiParams]);
+  }, [filters.filters.search, filters.filters.category, filters.filters.stockStatus, filters.filters.priceRange, page, pageSize, h.currentView, h.fetchItems, h.fetchTrash]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -199,6 +204,10 @@ export default function InventoryView() {
             onFiltersChange={handleFiltersChange}
             categories={categories}
             isLoading={h.isLoading || h.isSearching}
+            pendingSearch={filters.pendingSearch}
+            onUpdatePendingSearch={filters.updatePendingSearch}
+            onTriggerSearch={filters.triggerSearch}
+            isSearchPending={filters.isSearchPending}
           />
           <div className="flex justify-end mt-4">
             <DensitySelector density={density} onDensityChange={handleDensityChange} />
