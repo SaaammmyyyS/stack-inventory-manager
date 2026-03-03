@@ -15,7 +15,7 @@ export const InventoryMessage: React.FC<InventoryMessageProps> = ({ data }) => (
         </div>
         <div className="flex-1">
           <div className="font-medium text-slate-900">
-            {item.name || 'Unknown Item'}
+            {item.name}
           </div>
           <div className="text-sm text-slate-600">
             {item.quantity} units in stock

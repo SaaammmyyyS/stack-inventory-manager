@@ -4,6 +4,7 @@ import { ForecastCard } from "./ForecastCard";
 import { StockAIInsight } from "@/types/inventory";
 import { useInventory } from "@/hooks/useInventory";
 import { toast } from "sonner";
+import { ApiError } from "@/types/errors";
 
 interface ForecastViewProps {
   tenantId: string;
@@ -23,8 +24,9 @@ export function ForecastView({ isPro }: ForecastViewProps) {
       try {
         const { data } = await api.get('/api/v1/forecast/all');
         setInsights(data || []);
-      } catch (e: any) {
-        if (e.response?.status !== 402) {
+      } catch (e: unknown) {
+        const error = e as ApiError;
+        if (error.response?.status !== 402) {
           toast.error("Could not load health matrix");
         }
       } finally {

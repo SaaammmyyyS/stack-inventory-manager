@@ -1,8 +1,9 @@
 import React from 'react';
+import { DebugResponseData } from '@/types/chat';
 
 interface DebugResponseProps {
   content: string;
-  parsed: any;
+  parsed: DebugResponseData;
 }
 
 export const DebugResponse: React.FC<DebugResponseProps> = ({ content, parsed }) => (

@@ -1,3 +1,14 @@
+export interface TrashBinItem extends InventoryItem {
+  deletedAt: string;
+  deletedBy?: string;
+  deletionReason?: string;
+  [key: string]: unknown;
+}
+
+export interface ForecastInsight extends StockAIInsight {
+  // Additional forecast-specific properties can be added here
+}
+
 export interface InventoryItem {
   id: string;
   name: string;

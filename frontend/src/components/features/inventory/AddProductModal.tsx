@@ -11,13 +11,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Loader2, PackagePlus, AlertCircle, DollarSign, BellRing, Info } from "lucide-react";
+import { ProductFormData, FormSubmitHandler } from "@/types/forms";
 
 interface Props {
   isOpen: boolean;
   isPending: boolean;
   error?: string | null;
   onClose: () => void;
-  onSubmit: (data: any) => void;
+  onSubmit: FormSubmitHandler<ProductFormData>;
 }
 
 export default function AddProductModal({ isOpen, isPending, error, onClose, onSubmit }: Props) {
@@ -27,7 +28,7 @@ export default function AddProductModal({ isOpen, isPending, error, onClose, onS
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
 
-    const data = {
+    const data: ProductFormData = {
       name: formData.get('name')?.toString() || '',
       sku: formData.get('sku')?.toString() || '',
       category: formData.get('category')?.toString() || '',

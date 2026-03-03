@@ -1,13 +1,16 @@
 import React from 'react';
 import { Package } from 'lucide-react';
-import { ForecastItem } from "@/types/chat";
+import { ForecastItem, ForecastStatus } from "@/types/chat";
+import { normalizeForecastItems } from "@/utils/apiNormalizer";
 
 interface ForecastMessageProps {
   data: ForecastItem[];
 }
 
 export const ForecastMessage: React.FC<ForecastMessageProps> = ({ data }) => {
-  if (!Array.isArray(data) || data.length === 0) {
+  const normalizedData = normalizeForecastItems(data);
+
+  if (!Array.isArray(normalizedData) || normalizedData.length === 0) {
     return (
       <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
         <p className="text-yellow-800 text-sm">No forecast data available.</p>
@@ -15,20 +18,21 @@ export const ForecastMessage: React.FC<ForecastMessageProps> = ({ data }) => {
     );
   }
 
-  const getStatusInfo = (item: ForecastItem) => {
-    const healthStatus = item.healthStatus ?? item.health_status;
-    const daysRemaining = item.daysRemaining ?? item.days_remaining ?? null;
+  const getStatusInfo = (item: ForecastItem): ForecastStatus => {
+    const healthStatus = item.healthStatus;
 
     if (healthStatus) {
       switch (healthStatus.toUpperCase()) {
         case 'CRITICAL': return { color: 'red', label: 'CRITICAL', days: 4 };
         case 'WARNING': return { color: 'yellow', label: 'WARNING', days: 15 };
         case 'STABLE': return { color: 'green', label: 'STABLE', days: 999 };
-        default: return { color: 'gray', label: healthStatus, days: 30 };
+        default: return { color: 'gray', label: healthStatus as ForecastStatus['label'], days: 30 };
       }
     }
 
-    if (daysRemaining !== null) {
+    const daysRemaining = item.daysRemaining;
+
+    if (daysRemaining !== null && daysRemaining !== undefined) {
       if (daysRemaining <= 4) return { color: 'red', label: 'CRITICAL', days: 4 };
       if (daysRemaining <= 15) return { color: 'yellow', label: 'WARNING', days: 15 };
       if (daysRemaining <= 30) return { color: 'orange', label: 'CAUTION', days: 30 };
@@ -40,17 +44,17 @@ export const ForecastMessage: React.FC<ForecastMessageProps> = ({ data }) => {
 
   return (
     <div className="space-y-3">
-      {data.map((item, index) => {
+      {normalizedData.map((item, index) => {
         if (!item || typeof item !== 'object') {
           return null;
         }
 
-        const itemName = item.itemName || item.name || 'Unknown Item';
-        const daysRemaining = item.daysRemaining ?? item.days_remaining ?? null;
-        const currentQuantity = item.currentQuantity ?? item.current_quantity ?? 0;
+        const itemName = item.itemName;
+        const daysRemaining = item.daysRemaining;
+        const currentQuantity = item.currentQuantity;
         const sku = item.sku;
-        const healthStatus = item.healthStatus ?? item.health_status;
-        const suggestedThreshold = item.suggestedThreshold ?? item.suggested_threshold;
+        const healthStatus = item.healthStatus;
+        const suggestedThreshold = item.suggestedThreshold;
         const statusInfo = getStatusInfo(item);
 
         return (
@@ -87,7 +91,7 @@ export const ForecastMessage: React.FC<ForecastMessageProps> = ({ data }) => {
                   <div className="flex items-center gap-2">
                     <Package size={16} className="text-slate-400" />
                     <span className={`font-medium text-${statusInfo.color}-600`}>
-                      {daysRemaining !== null ? `${daysRemaining} days remaining` : 'No forecast data'}
+                      {daysRemaining !== null && daysRemaining !== undefined ? `${daysRemaining} days remaining` : 'No forecast data'}
                     </span>
                   </div>
                   {healthStatus && (

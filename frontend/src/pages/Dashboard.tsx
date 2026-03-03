@@ -8,6 +8,8 @@ import {
 import { IntelligenceHub } from "@/components/features/dashboard/IntelligenceHub/index";
 import { ForecastView } from "@/components/features/dashboard/ForecastView";
 import { toast } from "sonner";
+import { TabType, StatCardProps, ColorTheme, DashboardStats } from "@/types/dashboard";
+import { ApiError } from "@/types/errors";
 
 export default function Dashboard() {
   const { items, trashedItems, isLoading, fetchItems, fetchTrash, api, currentPlan } = useInventory();
@@ -16,7 +18,7 @@ export default function Dashboard() {
   const { has } = useAuth();
 
   const [isDownloading, setIsDownloading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'forecast'>('overview');
+  const [activeTab, setActiveTab] = useState<TabType>('overview');
   const hasInitialFetched = useRef(false);
   const tenantId = useMemo(() => organization?.id || user?.id || "personal", [organization?.id, user?.id]);
 
@@ -32,7 +34,7 @@ export default function Dashboard() {
     }
   }, [fetchItems, fetchTrash, isOrgLoaded, isUserLoaded]);
 
-  const stats = useMemo(() => {
+  const stats = useMemo((): DashboardStats => {
     const valuation = items.reduce((acc, item) => acc + ((item.quantity || 0) * (item.price || 0)), 0);
     const totalRecords = items.length + trashedItems.length;
     const health = totalRecords > 0 ? Math.round((items.length / totalRecords) * 100) : 100;
@@ -69,8 +71,9 @@ export default function Dashboard() {
       toast.success("Report Downloaded", {
         description: "Your weekly inventory audit is ready."
       });
-    } catch (error: any) {
-      if (error.response?.status !== 429 && error.response?.status !== 402) {
+    } catch (error: unknown) {
+      const apiError = error as ApiError;
+      if (apiError.response?.status !== 429 && apiError.response?.status !== 402) {
         toast.error("Export Error", {
           description: "Unable to generate PDF at this time."
         });
@@ -105,10 +108,10 @@ export default function Dashboard() {
 
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex bg-muted/50 p-1 rounded-2xl border border-border">
-            {['overview', 'forecast'].map((tab) => (
+            {(['overview', 'forecast'] as TabType[]).map((tab) => (
               <button
                 key={tab}
-                onClick={() => setActiveTab(tab as any)}
+                onClick={() => setActiveTab(tab)}
                 className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-xs capitalize transition-all ${
                   activeTab === tab
                   ? 'bg-background text-foreground shadow-lg'
@@ -153,8 +156,8 @@ export default function Dashboard() {
   );
 }
 
-function StatCard({ title, value, icon, color, alert, trend }: any) {
-  const colors: any = {
+function StatCard({ title, value, icon, color, alert, trend }: StatCardProps) {
+  const colors: ColorTheme = {
     blue: "bg-blue-500/10 text-blue-500",
     emerald: "bg-emerald-500/10 text-emerald-500",
     orange: "bg-destructive/10 text-destructive",
@@ -168,7 +171,11 @@ function StatCard({ title, value, icon, color, alert, trend }: any) {
       <div className="relative z-10">
         <div className="flex items-center justify-between">
           <p className="text-muted-foreground font-bold text-[10px] uppercase tracking-[0.2em]">{title}</p>
-          {trend && <span className="text-[10px] font-black text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-md">{trend}</span>}
+          {trend && (
+            <span className="text-[10px] font-black text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-md">
+              {typeof trend === 'string' ? trend : `${trend.direction === 'up' ? '+' : ''}${trend.value}%`}
+            </span>
+          )}
         </div>
         <h3 className={`text-4xl font-black mt-2 tracking-tighter ${alert ? 'text-destructive' : 'text-foreground'}`}>{value}</h3>
       </div>

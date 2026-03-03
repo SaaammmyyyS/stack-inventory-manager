@@ -2,13 +2,19 @@ export type MessageRole = 'user' | 'assistant';
 
 export type MessageType = 'text' | 'transactions' | 'inventory' | 'forecast' | 'processing' | 'conversational';
 
+export interface ForecastStatus {
+  color: 'green' | 'yellow' | 'red' | 'gray' | 'orange';
+  label: 'STABLE' | 'WARNING' | 'CRITICAL' | 'UNKNOWN' | 'CAUTION';
+  days: number;
+}
+
 export interface Message {
   role: MessageRole;
   content: string;
   type?: MessageType;
-  data?: any;
+  data?: unknown;
   isProcessing?: boolean;
-  debugInfo?: any;
+  debugInfo?: DebugInfo;
 }
 
 export interface ChatState {
@@ -22,19 +28,28 @@ export interface ChatState {
 export interface ChatResponse {
   type: MessageType;
   content: string;
-  data?: any;
+  data?: unknown;
   isProcessing?: boolean;
-  debugInfo?: any;
+  debugInfo?: DebugInfo;
+}
+
+export interface DebugResponseData {
+  intent?: string;
+  entities?: Record<string, unknown>;
+  parsed?: ParsedResponse;
+  fragments?: unknown[];
+  merged?: unknown;
+  error?: string;
 }
 
 export interface DebugInfo {
   source: string;
-  parsed?: any;
+  parsed?: DebugResponseData;
   intent?: string;
-  entities?: Record<string, any>;
-  data?: any;
-  fragments?: any[];
-  merged?: any;
+  entities?: Record<string, unknown>;
+  data?: unknown;
+  fragments?: unknown[];
+  merged?: unknown;
   message?: string;
   originalContent?: string;
   error?: string;
@@ -44,20 +59,21 @@ export interface TransactionItem {
   id?: string;
   itemId?: string;
   itemName?: string;
-  itemname?: string;
-  type: 'STOCK_IN' | 'STOCK_OUT';
-  amount?: number;
-  quantitychange?: number;
   performedBy?: string;
-  performedby?: string;
-  reason?: string;
+  amount?: number;
   createdAt?: string;
+  itemname?: string;
+  performedby?: string;
+  quantitychange?: number;
   createdat?: string;
+
+  type: 'STOCK_IN' | 'STOCK_OUT';
+  reason?: string;
 }
 
 export interface InventoryItem {
   id?: string;
-  name?: string;
+  name: string;
   quantity: number;
   sku?: string;
   minThreshold?: number;
@@ -65,35 +81,35 @@ export interface InventoryItem {
 
 export interface ForecastItem {
   itemName?: string;
-  name?: string;
   daysRemaining?: number;
-  days_remaining?: number;
   currentQuantity?: number;
-  current_quantity?: number;
   sku?: string;
   healthStatus?: string;
-  health_status?: string;
   suggestedThreshold?: number;
-  suggested_threshold?: number;
   runoutDate?: string;
+  name?: string;
+  days_remaining?: number;
+  current_quantity?: number;
+  health_status?: string;
+  suggested_threshold?: number;
 }
 
 export interface ParsedResponse {
   debug?: {
     intent?: string;
-    entities?: Record<string, any>;
+    entities?: Record<string, unknown>;
   };
   data?: {
-    data?: any[];
-    items?: any[];
+    data?: unknown[];
+    items?: unknown[];
     summary?: string;
     status?: string;
     summary_text?: string;
     health_score?: number;
     urgent_actions?: string[];
   };
-  items?: any[];
-  responseData?: any[];
+  items?: unknown[];
+  responseData?: unknown[];
   summary?: string;
 }
 

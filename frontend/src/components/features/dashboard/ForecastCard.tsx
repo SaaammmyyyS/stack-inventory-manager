@@ -1,6 +1,7 @@
 import { Zap, AlertTriangle, CheckCircle } from "lucide-react";
+import { ForecastInsight } from "@/types/inventory";
 
-export function ForecastCard({ insight }: { insight: any }) {
+export function ForecastCard({ insight }: { insight: ForecastInsight }) {
   const isWarning = insight.healthStatus === 'CRITICAL' || insight.healthStatus === 'CAUTION';
   const isGood = insight.healthStatus === 'GOOD' || insight.healthStatus === 'STABLE';
 

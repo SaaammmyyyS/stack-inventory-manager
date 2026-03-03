@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, PackageOpen, Info, AlertCircle } from 'lucide-react';
 import { InventoryItem } from '@/types/inventory';
+import { ProductUpdateFormState, ProductUpdateData, FormSubmitHandler } from '@/types/forms';
 
 interface UpdateProductModalProps {
   isOpen: boolean;
@@ -14,11 +15,11 @@ interface UpdateProductModalProps {
   error?: string | null;
   item: InventoryItem | null;
   onClose: () => void;
-  onSubmit: (data: Partial<InventoryItem>) => void;
+  onSubmit: FormSubmitHandler<ProductUpdateData>;
 }
 
 export function UpdateProductModal({ isOpen, isPending, error, item, onClose, onSubmit }: UpdateProductModalProps) {
-  const { register, handleSubmit, reset, setValue, watch } = useForm({
+  const { register, handleSubmit, reset, setValue, watch } = useForm<ProductUpdateFormState>({
     defaultValues: {
       name: '',
       sku: '',
@@ -43,8 +44,9 @@ export function UpdateProductModal({ isOpen, isPending, error, item, onClose, on
     }
   }, [item, reset]);
 
-  const onFormSubmit = (data: any) => {
-    const formattedData = {
+  const onFormSubmit = (data: ProductUpdateFormState) => {
+    const formattedData: ProductUpdateData = {
+      id: item?.id || '',
       ...data,
       price: Number(data.price),
       minThreshold: Number(data.minThreshold)

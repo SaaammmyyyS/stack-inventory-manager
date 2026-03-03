@@ -1,18 +1,10 @@
 import React, { useState } from 'react';
 import { RotateCcw, Trash2, User, Inbox, AlertTriangle, X, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from "@/components/ui/button";
-
-interface InventoryItem {
-  id: string;
-  name: string;
-  sku: string;
-  category: string;
-  deletedBy?: string;
-  [key: string]: any;
-}
+import { TrashBinItem } from '@/types/inventory';
 
 interface TrashBinTableProps {
-  items: InventoryItem[];
+  items: TrashBinItem[];
   isAdmin: boolean;
   onFetch: () => void;
   onRestore: (id: string) => Promise<void>;
@@ -27,7 +19,7 @@ const TrashBinTable: React.FC<TrashBinTableProps> = ({
   onHardDelete
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [itemToDelete, setItemToDelete] = useState<InventoryItem | null>(null);
+  const [itemToDelete, setItemToDelete] = useState<TrashBinItem | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
 
   const pageSize = 5;
@@ -35,7 +27,7 @@ const TrashBinTable: React.FC<TrashBinTableProps> = ({
   const totalPages = Math.ceil(totalItems / pageSize);
   const paginatedItems = (items || []).slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
-  const openDeleteModal = (item: InventoryItem) => {
+  const openDeleteModal = (item: TrashBinItem) => {
     setItemToDelete(item);
     setIsModalOpen(true);
   };

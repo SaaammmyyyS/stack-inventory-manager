@@ -1,7 +1,18 @@
+export interface ApiError {
+  response?: {
+    status: number;
+    data?: unknown;
+  };
+  message?: string;
+  code?: string;
+}
+
+export type ErrorHandler = (error: ApiError) => void;
+
 export interface AppError {
   code: string;
   message: string;
-  details?: any;
+  details?: unknown;
   correlationId?: string;
   category: 'validation' | 'business' | 'network' | 'auth' | 'server';
   recoverable: boolean;
@@ -17,7 +28,7 @@ export interface AppError {
 export interface ValidationError extends AppError {
   category: 'validation';
   field: string;
-  rejectedValue: any;
+  rejectedValue: unknown;
   reason: string;
 }
 
@@ -70,6 +81,6 @@ export interface BackendErrorResponse {
   status: number;
   error: string;
   message: string;
-  details?: any;
+  details?: unknown;
   path: string;
 }
